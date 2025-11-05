@@ -1,0 +1,133 @@
+@startuml UML
+skinparam classAttributeIconSize 0
+skinparam classFontSize 14
+skinparam classAttributeFontSize 12
+skinparam classBackgroundColor #fdfdfd
+skinparam classBorderColor #C0392B
+skinparam classArrowColor #34495E
+skinparam shadowing false
+
+' === CLASSES DE BASE ===
+class Bloc {
+  - Entier x
+  - Entier y
+  - Boolean palpable
+  - String texturdddeId
+  + void setX(Entier x)
+  + void setY(Entier y)
+  + Entier getX()
+  + Entier getY()
+  + void setPalpable(Boolean flag)
+  + void setTextureId(String textureId)
+  + Boolean getPalpable()
+  + String getTextureId()
+}
+
+class Createur {
+  - IdCreateur id
+  - String mdp
+  + void créer()
+}
+
+class Joueur {
+  - Bloc[] blocs
+  - Boolean vivant
+  + void déplacement(boutons)
+}
+
+class Creeper {
+  + void déplacement()
+}
+
+class Carte {
+  - Entier m
+  - Entier n
+  - Entier h
+  - Bloc[m][n] blocs
+  - Automate[] automates
+  + void afficherCarte()
+  + void setbloc(Entier i,j,x,y; Boolean palpable; String textureId)
+  + Bloc getbloc(Entier i,j)
+}
+
+class Automate {
+  - Entier R
+  - Bloc[R] blocs
+  + void setAutomate(R,Bloc[R] blocs)
+  + Bloc[R] getAutomate()
+}
+
+abstract class "Automate-mortel" as AutomateMortel {
+  + Boolean kill()
+}
+
+abstract class "Automate-non-mortel" as AutomateNonMortel {
+  + Abstract activer()
+}
+
+class Herobrine{
+    + void deplacement()
+}
+class Piège
+
+class PlaqueDePression {
+  - Entier numéroPlaque
+  + void activer()
+  + void setNumeroPlaque(Entier numeroPlaque)
+  + Entier getNumeroPlaque()
+}
+
+class Porte {
+  - Entier numéroPlaque
+  + void activer()
+  + void setNumeroPlaque(Entier numéroPlaque)
+  + Entier getNumeroPlaque()
+  + void finDePartie()
+}
+
+class Serveur {
+  - Client[] clients
+  - Createur[] créateurs
+  - Boolean[] connectés
+  - Carte[] cartesDisponibles
+  + void transmettre()
+  + Boolean vérifieConnexion()
+}
+
+class Client {
+  - String mdp
+  - Boolean connecté
+  - IdClient[] listeDeAmi
+  -IdClient idClient
+  + void connecter()
+  + void input()
+  + void partie()
+}
+
+
+' === HÉRITAGES ===
+Automate <|-- AutomateMortel
+Automate <|-- AutomateNonMortel
+AutomateMortel <|-- Piège
+AutomateMortel <|-- Herobrine
+AutomateMortel <|-- Creeper
+AutomateNonMortel <|-- Porte
+AutomateNonMortel <|-- PlaqueDePression
+
+' === ASSOCIATIONS ===
+Carte "1" -- "n" Bloc
+Automate "1" -- "n" Bloc
+Carte "1" -- "n" Automate
+Carte "1" -- "n" Joueur
+Serveur  --  "*" Client
+
+PlaqueDePression -- Porte : active
+
+
+Createur -- Carte
+Client -- Carte
+Client -- Joueur
+Createur -- Serveur
+AutomateMortel -- Joueur : kill
+
+@enduml

@@ -1,0 +1,32 @@
+@startuml sequence-client
+title Diagramme de séquence Client–Serveur
+
+actor Client1
+participant Serveur
+actor Client2
+
+Client1 -> Serveur : demande_de_connexion()
+Serveur --> Client1 : connecté
+
+alt état = true
+    Client1 -> Serveur : demande_à_un_ami()
+    alt l’ami est connecté
+        Serveur -> Client2 : envoi_invitation()
+        Client2 --> Serveur : accepte()
+        Serveur --> Client1 : accepté
+    else
+        Serveur --> Client1 : avertissement
+    end
+else
+    Client2 -> Serveur : demande_à_un_ami()
+    Serveur --> Client1 : reçoit_une_invitation()
+    Client1 -> Serveur : accepte()
+    Serveur -> Client2 : accepte()
+end
+
+Client1 -> Serveur : choisir_niveau()
+Client2 -> Serveur : choisir_niveau()
+Client2 --> Serveur : carte
+Client1 --> Serveur : carte
+
+@enduml

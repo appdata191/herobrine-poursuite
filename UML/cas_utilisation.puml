@@ -1,0 +1,32 @@
+@startuml cas_utilisation
+title Diagramme de cas d’utilisation – Jeu en réseau
+
+actor "Créateur du jeu" as Creator
+actor "Joueur" as Player
+
+rectangle "Système du Jeu" {
+    usecase "Créer une carte" as UC_CreateMap
+    usecase "Se connecter au réseau" as UC_Connect
+    usecase "Contrôler le joueur" as UC_Control
+    usecase "Jouer" as UC_Play
+    usecase "Fin du jeu" as UC_Death
+    usecase "Mettre à jour les cartes disponibles sur le serveur" as Modifier_Maps_Server
+    usecase "Inviter un ami" as Friends
+    usecase "Accepter de jouer avec un ami" as AcceptFriends
+}
+
+' --- Relations ---
+
+Creator --> UC_CreateMap
+UC_CreateMap .up.> Modifier_Maps_Server : extends
+
+Player --> AcceptFriends    
+Player --> UC_Connect :"connecté"
+Player --> UC_Control
+Player --> UC_Play
+
+Friends .up.> UC_Play : includes
+UC_Control .up.> UC_Play : includes
+UC_Play .down.> UC_Death : extends
+
+@enduml

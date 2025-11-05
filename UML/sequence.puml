@@ -1,0 +1,18 @@
+@startuml sequence-createur
+title Diagramme de séquence d’un créateur
+
+actor Creator
+participant Serveur
+participant Carte
+
+Creator -> Serveur : demande_de_connexion()
+Serveur --> Creator : connecté
+
+loop Création et enregistrement de carte
+    Creator -> Carte : créer_carte()
+    Carte --> Serveur : enregistre_la_carte()
+end
+
+Serveur --> Creator : déconnecte()
+
+@enduml

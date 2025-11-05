@@ -1,0 +1,40 @@
+@startuml partie
+title Diagramme de séquence d’une partie
+
+actor Joueur
+participant Serveur
+participant "Automate mortel" as AM
+participant "Automate non mortel" as ANM
+
+alt Menu = True
+    Joueur -> Serveur : continuer_partie()
+    Serveur --> Joueur : menu = False
+    Joueur -> Serveur : terminer_la_partie()
+    Serveur --> Joueur : fin_de_partie
+else
+    Joueur -> Serveur : input()
+    Serveur -> AM : détection_collision()
+    alt Collision = True
+        AM --> Serveur : tuer
+        Serveur --> Joueur : fin_de_partie
+    else
+        AM --> Serveur : vivant
+    end
+
+    Serveur -> ANM : détection_collision()
+    alt Collision = True
+        ANM -> ANM : activation
+        ANM --> Serveur : état_automate
+       
+    else
+        ANM --> Serveur : état_automate
+    end
+
+    alt état_automate = fin_de_partie
+        Serveur --> Joueur : succes
+    else
+        Serveur --> Joueur : actualisation
+    end
+end
+
+@enduml
