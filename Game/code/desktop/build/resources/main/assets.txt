@@ -15,6 +15,9 @@ GIMP retouche image/Fond_simple.xcf
 GIMP retouche image/Pics.png
 GIMP retouche image/Pics.xcf
 Pics.png
+assets/levels/level1.txt.txt
+assets/levels/level2.txt.txt
+assets/levels/niveau1.txt.txt
 creeper.png
 herobrine.png
 levels/Fond_sapin.png

@@ -22,11 +22,10 @@ public class Carte {
     private int groundRow = 5;
 
     private Block[][] blocks;
+    private String currentLevelPath;
 
-    // liste d'automates mortels (Creeper, Pics, etc.)
     private final List<AutomateMortel> automates = new ArrayList<>();
 
-    // Raw défini au niveau de la classe pour être accessible partout
     private static class Raw {
         final String type;
         final List<Integer> coords;
@@ -34,6 +33,10 @@ public class Carte {
     }
 
     public void create() {
+        create(null);
+    }
+
+    public void create(String levelPath) {
         blockTop = new Texture("Bloc du dessus.png");
         blockBottom = new Texture("Bloc du dessous.png");
         background = new Texture("Fond_simple.png");
@@ -46,7 +49,12 @@ public class Carte {
 
         ensureArrays(mapCols, mapRows);
 
-        loadLevel("levels/level1.txt");
+        if (levelPath != null && !levelPath.isEmpty()) {
+            this.currentLevelPath = levelPath;
+            loadLevel(levelPath);
+        } else {
+            Gdx.app.log("Carte", "Aucun chemin de niveau fourni, la carte est vide.");
+        }
     }
 
     private void ensureArrays(int w, int h) {
@@ -64,16 +72,13 @@ public class Carte {
         mapRows = h;
     }
 
-    // Level format:
-    // T x y            -> single TOP at (x,y)
-    // T x1 y1 x2 y2    -> fill rectangle/segment of TOP between the two coords (inclusive)
-    // B ... same for bottom (optional)
-    // C x1 y1 x2 y2    -> Creeper
-    // P x y            -> Pics (spikes) above block at x,y
-    private void loadLevel(String internalPath) {
+    private void loadLevel(String path) {
         try {
-            FileHandle fh = Gdx.files.internal(internalPath);
-            if (!fh.exists()) return;
+            FileHandle fh = Gdx.files.local(path);
+            if (!fh.exists()) {
+                Gdx.app.error("Carte", "Fichier de niveau non trouve : " + path);
+                return;
+            }
             String[] lines = fh.readString("UTF-8").split("\\r?\\n");
 
             List<Raw> raws = new ArrayList<>();
@@ -93,7 +98,6 @@ public class Carte {
                     catch (NumberFormatException ignored) { }
                 }
                 if (coords.size() == 0) continue;
-                // accumulate max needed
                 if (coords.size() >= 2) {
                     if (coords.size() == 2) {
                         maxX = Math.max(maxX, coords.get(0));
@@ -106,7 +110,6 @@ public class Carte {
                 raws.add(new Raw(type, coords));
             }
 
-            // determine explicit max
             int explicitMaxX = mapCols - 1;
             int explicitMaxY = mapRows - 1;
             for (Raw r : raws) {
@@ -124,40 +127,31 @@ public class Carte {
 
             ensureArrays(Math.max(mapCols, explicitMaxX + 1), Math.max(mapRows, explicitMaxY + 1));
 
-            // place provided BOTTOMs first (single or ranges)
             for (Raw r : raws) {
                 if (r.type.equals("B") || r.type.equals("BOTTOM")) {
                     placeFromRaw(r, Block.Type.BOTTOM);
                 }
             }
 
-            // place TOPs (they overwrite bottoms at same tile)
             for (Raw r : raws) {
                 if (r.type.equals("T") || r.type.equals("TOP")) {
                     placeFromRaw(r, Block.Type.TOP);
                 }
             }
 
-            // auto-fill bottoms under TOPs
             for (int x = 0; x < mapCols; x++) {
                 List<Integer> tops = new ArrayList<>();
                 for (int y = 0; y < mapRows; y++) if (blocks[x][y] != null && blocks[x][y].isTop()) tops.add(y);
                 if (tops.isEmpty()) continue;
                 Collections.sort(tops);
-                for (int i = 0; i < tops.size(); i++) {
-                    int yTop = tops.get(i);
-                    int lowerTop = -1;
-                    if (i-1 >= 0) lowerTop = tops.get(i-1);
-                    int fillTo = (lowerTop == -1) ? (yTop - 1) : (lowerTop - 1);
-                    for (int by = 0; by <= fillTo; by++) {
-                        if (by >= 0 && by < mapRows) {
-                            if (blocks[x][by] == null) blocks[x][by] = new Block(x, by, Block.Type.BOTTOM, blockBottom);
-                        }
+                int lowestTop = tops.get(0);
+                for (int by = 0; by < lowestTop; by++) {
+                    if (inBounds(x, by) && blocks[x][by] == null) {
+                        blocks[x][by] = new Block(x, by, Block.Type.BOTTOM, blockBottom);
                     }
                 }
             }
 
-            // create automates (Creeper / Pics) from raws
             for (Raw r : raws) {
                 if (r.type.equals("C") || r.type.equals("CREEPER")) {
                     List<Integer> c = r.coords;
@@ -184,8 +178,7 @@ public class Carte {
             Gdx.app.log("Carte", "Erreur lecture niveau: " + e.getMessage());
         }
     }
-
-    // helper to place single or rectangular entries from Raw into blocks
+    
     private void placeFromRaw(Raw r, Block.Type placeType) {
         List<Integer> c = r.coords;
         if (c.size() == 2) {
@@ -216,7 +209,6 @@ public class Carte {
         return gx >= 0 && gy >= 0 && gx < mapCols && gy < mapRows;
     }
 
-    // update automates; retourne true si le joueur a été tué
     public boolean updateAutomates(float delta, Joueur joueur) {
         for (AutomateMortel a : automates) {
             a.update(delta);
@@ -225,40 +217,50 @@ public class Carte {
         return false;
     }
 
-    // cameraX = offset en pixels de la caméra (0 = gauche map)
     public void render(SpriteBatch batch, float cameraX) {
         int screenW = Gdx.graphics.getWidth();
         int screenH = Gdx.graphics.getHeight();
-
         int mapWidthPx = getMapWidth();
-
-        // augmenter la hauteur du background de base de 60 pixels
         final float EXTRA_HEIGHT = 60f;
         float destHeight = screenH + EXTRA_HEIGHT;
-
         float bgW = background.getWidth();
         float bgH = background.getHeight();
         if (bgH <= 0) bgH = 1;
         float destWidth = (bgW / bgH) * destHeight;
         if (destWidth < 1f) destWidth = screenW;
 
-        // dessine le background aligné en bas (s'étend 60px au-dessus de l'écran)
         for (float bx = 0; bx < mapWidthPx; bx += destWidth) {
             batch.draw(background, bx - cameraX, 0f, destWidth, destHeight);
         }
 
-        // dessine les blocs placés par le niveau
-        int maxC = mapCols;
-        int maxR = mapRows;
-        for (int c = 0; c < maxC; c++) {
-            for (int r = 0; r < maxR; r++) {
+        for (int c = 0; c < mapCols; c++) {
+            for (int r = 0; r < mapRows; r++) {
                 Block b = blocks[c][r];
                 if (b != null) b.render(batch, TILE, cameraX);
             }
         }
 
-        // dessine les automates
         for (AutomateMortel a : automates) a.render(batch, cameraX);
+    }
+
+    /**
+     * NOUVEAU : Trouve la position Y de la surface pour une colonne X donnée.
+     * @param gx La coordonnée X en tuiles.
+     * @return La position Y en pixels où le joueur doit apparaître.
+     */
+    public float getSurfaceYAt(int gx) {
+        if (!inBounds(gx, 0)) {
+            return getGroundY(); // Si gx est hors limites, retourne le sol par défaut
+        }
+        // On scanne la colonne de haut en bas
+        for (int gy = mapRows - 1; gy >= 0; gy--) {
+            if (isTopBlockAt(gx, gy)) {
+                // Le joueur doit être au-dessus de cette tuile
+                return (gy + 1) * TILE;
+            }
+        }
+        // S'il n'y a aucun bloc TOP dans cette colonne, on retourne le sol par défaut
+        return getGroundY();
     }
 
     public float getGroundY() {
@@ -266,11 +268,7 @@ public class Carte {
     }
 
     public int getTile() { return TILE; }
-
-    public int getMapWidth() {
-        return mapCols * TILE;
-    }
-
+    public int getMapWidth() { return mapCols * TILE; }
     public int getMapCols() { return mapCols; }
     public int getMapRows() { return mapRows; }
 
@@ -284,6 +282,8 @@ public class Carte {
         if (!inBounds(gx, gy)) return false;
         return blocks[gx][gy] != null;
     }
+    
+    public String getCurrentLevelPath() { return currentLevelPath; }
 
     public void dispose() {
         if (blockTop != null) blockTop.dispose();

@@ -2,27 +2,19 @@ package com.github.herobrine;
 
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.math.Rectangle;
 
-/**
- * Pics stationnaires : largeur 60, hauteur 20.
- * Ils tuent toujours au contact (côté, dessus ou dessous).
- */
 public class Pics extends AutomateMortel {
     private final Texture texture;
-    private final float x;
-    private final float y; // bottom position in pixels
 
-    public Pics(int gx, int gy, int tile) {
-        super(60f, 30f);
-        this.x = gx * tile;
-        // placer la base (y) au sommet du bloc (gy*tile + tile)
-        this.y = gy * tile + tile;
-        texture = new Texture("Pics.png");
+    public Pics(int gridX, int gridY, int tile) {
+        super(gridX * tile, (gridY + 1) * tile, 60f, 20f);
+        this.texture = new Texture("Pics.png");
     }
 
     @Override
     public void update(float delta) {
-        // stationary
+        // Les pics sont statiques, pas de mise à jour nécessaire
     }
 
     @Override
@@ -30,22 +22,31 @@ public class Pics extends AutomateMortel {
         batch.draw(texture, x - cameraX, y, width, height);
     }
 
-    @Override
-    public float getX() { return x; }
-
-    @Override
-    public float getY() { return y; }
-
+    /**
+     * CORRIGÉ : La logique de hitbox composite est maintenant appliquée ici.
+     */
     @Override
     public boolean kill(Joueur joueur) {
-        // override : kill on any overlap (no stomp immunity)
-        float px = joueur.getX();
-        float py = joueur.getY();
-        float pw = joueur.getWidth();
-        float ph = joueur.getHeight();
-        boolean overlapX = px < x + width && px + pw > x;
-        boolean overlapY = py < y + height && py + ph > y;
-        return overlapX && overlapY;
+        // Création des rectangles pour la hitbox composite du joueur
+        float feetHeight = joueur.getHeight() / 4;
+        float upperBodyHeight = joueur.getHeight() - feetHeight;
+
+        Rectangle playerFeet = new Rectangle(
+            joueur.getX() + joueur.getFeetOffsetX(),
+            joueur.getY(),
+            joueur.getFeetWidth(),
+            feetHeight
+        );
+
+        Rectangle playerUpperBody = new Rectangle(
+            joueur.getX(),
+            joueur.getY() + feetHeight,
+            joueur.getBodyWidth(),
+            upperBodyHeight
+        );
+
+        // On vérifie si la hitbox des Pics touche l'une ou l'autre partie du corps du joueur
+        return hitbox.overlaps(playerFeet) || hitbox.overlaps(playerUpperBody);
     }
 
     @Override

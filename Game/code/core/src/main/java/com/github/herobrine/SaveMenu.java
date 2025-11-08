@@ -4,26 +4,11 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.InputAdapter;
 import com.badlogic.gdx.InputProcessor;
-import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 
-/**
- * Menu d'enregistrement / sortie pour l'éditeur CreateMap.
- * - OPTIONS: Enregistrer (demande nom), Menu principal (avec confirmation), Quitter (avec confirmation)
- *
- * API:
- *   activate() / deactivate() ; isActive()
- *   updateInput() -> one of RESULT_* or 0
- *
- * RESULT_*:
- *   RESULT_NONE = 0
- *   RESULT_SAVED = 1 (saved and keep editing)
- *   RESULT_RETURN_MENU = 2 (confirmed return to launch menu)
- *   RESULT_QUIT = 3 (confirmed quit)
- */
 public class SaveMenu {
     public static final int RESULT_NONE = 0;
     public static final int RESULT_SAVED = 1;
@@ -32,28 +17,31 @@ public class SaveMenu {
 
     private Texture overlayTex;
     private boolean active = false;
-    private int menuSelection = 0; // 0 = Enregistrer, 1 = Menu principal, 2 = Quitter
+    private int menuSelection = 0;
     private final float extraHeight;
 
-    // filename input
-    private boolean typingName = false; // kept for compatibility but not used for per-frame capture
+    // MODIFIÉ : Contexte de sauvegarde
+    private String levelToOverwrite = null; // Nom du fichier en cours de modif
+    private final String[] optionsNewMap = {"Enregistrer sous...", "Menu principal", "Quitter"};
+    private final String[] optionsModifyMap = {"Ecraser", "Enregistrer sous...", "Menu principal", "Quitter"};
+    private String[] currentOptions;
+
+    private boolean typingName = false;
     private String filename = "";
-    // input processor handling for in-game text entry
     private InputProcessor previousInputProcessor = null;
     private final InputAdapter typingProcessor = new InputAdapter() {
         @Override
         public boolean keyTyped(char character) {
             if (!typingName) return false;
             if (character == '\r' || character == '\n') return false;
-            if (character == '\b') { // backspace
+            if (character == '\b') {
                 if (filename.length() > 0) filename = filename.substring(0, filename.length() - 1);
                 return true;
             }
-            // accept basic filename chars
             if ((character >= 'a' && character <= 'z') ||
                 (character >= 'A' && character <= 'Z') ||
                 (character >= '0' && character <= '9') ||
-                character == '-' || character == '_' || character == '.') {
+                character == '-' || character == '_') { // Point retiré pour éviter les confusions
                 if (filename.length() < 64) filename += character;
                 return true;
             }
@@ -61,10 +49,9 @@ public class SaveMenu {
         }
     };
 
-    // confirmation step
     private boolean confirmActive = false;
     private String confirmMsg = "";
-    private int confirmAction = -1; // 2 return, 3 quit
+    private int confirmAction = -1;
 
     public SaveMenu(float extraHeight) {
         this.extraHeight = extraHeight;
@@ -75,7 +62,14 @@ public class SaveMenu {
         pm.dispose();
     }
 
-    public void activate() {
+    // MODIFIÉ : La méthode d'activation prend le contexte
+    public void activate(String loadedLevelName) {
+        this.levelToOverwrite = loadedLevelName;
+        if (this.levelToOverwrite != null) {
+            currentOptions = optionsModifyMap;
+        } else {
+            currentOptions = optionsNewMap;
+        }
         active = true;
         menuSelection = 0;
         typingName = false;
@@ -86,26 +80,19 @@ public class SaveMenu {
         active = false;
         typingName = false;
         confirmActive = false;
+        levelToOverwrite = null;
     }
 
     public boolean isActive() { return active; }
 
-    /**
-     * updateInput() doit être appelé depuis CreateMap.
-     * Retourne RESULT_* codes.
-     */
     public int updateInput() {
         if (!active) return RESULT_NONE;
 
-        // (removed legacy savedRequested check - using in-game typing now)
-
         if (confirmActive) {
             if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) {
-                // confirm action
                 confirmActive = false;
                 active = false;
-                if (confirmAction == RESULT_RETURN_MENU) return RESULT_RETURN_MENU;
-                else if (confirmAction == RESULT_QUIT) return RESULT_QUIT;
+                return confirmAction;
             }
             if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
                 confirmActive = false;
@@ -113,18 +100,15 @@ public class SaveMenu {
             return RESULT_NONE;
         }
 
-        // handle typing mode
         if (typingName) {
-            // confirm save
             if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) {
                 typingName = false;
-                // restore previous input processor
                 Gdx.input.setInputProcessor(previousInputProcessor);
                 previousInputProcessor = null;
-                active = false;
+                // On ne désactive pas le menu, on retourne le résultat
+                // active = false;
                 return RESULT_SAVED;
             }
-            // cancel typing
             if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
                 typingName = false;
                 filename = "";
@@ -136,28 +120,37 @@ public class SaveMenu {
         }
 
         if (Gdx.input.isKeyJustPressed(Input.Keys.DOWN) || Gdx.input.isKeyJustPressed(Input.Keys.S)) {
-            menuSelection = Math.min(2, menuSelection + 1);
+            menuSelection = Math.min(currentOptions.length - 1, menuSelection + 1);
         }
         if (Gdx.input.isKeyJustPressed(Input.Keys.UP) || Gdx.input.isKeyJustPressed(Input.Keys.W)) {
             menuSelection = Math.max(0, menuSelection - 1);
         }
+
         if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) {
-            if (menuSelection == 0) {
-                // start in-game typing: capture keyTyped events
-                typingName = true;
-                filename = "";
-                previousInputProcessor = Gdx.input.getInputProcessor();
-                Gdx.input.setInputProcessor(typingProcessor);
-                return RESULT_NONE;
-            } else if (menuSelection == 1) {
-                // confirm return to launch menu
-                confirmActive = true;
-                confirmMsg = "Retour au menu ? (ENTER pour confirmer, ESC pour annuler)";
-                confirmAction = RESULT_RETURN_MENU;
-            } else {
-                confirmActive = true;
-                confirmMsg = "Quitter ? (ENTER pour confirmer, ESC pour annuler)";
-                confirmAction = RESULT_QUIT;
+            String selectedOption = currentOptions[menuSelection];
+
+            switch (selectedOption) {
+                case "Ecraser":
+                    // On pré-remplit le nom de fichier et on retourne "SAVED"
+                    this.filename = this.levelToOverwrite;
+                    return RESULT_SAVED;
+                case "Enregistrer sous...":
+                    // On active le mode de saisie de texte
+                    typingName = true;
+                    filename = "";
+                    previousInputProcessor = Gdx.input.getInputProcessor();
+                    Gdx.input.setInputProcessor(typingProcessor);
+                    return RESULT_NONE;
+                case "Menu principal":
+                    confirmActive = true;
+                    confirmMsg = "Retour au menu ? (ENTER pour confirmer, ESC pour annuler)";
+                    confirmAction = RESULT_RETURN_MENU;
+                    break;
+                case "Quitter":
+                    confirmActive = true;
+                    confirmMsg = "Quitter ? (ENTER pour confirmer, ESC pour annuler)";
+                    confirmAction = RESULT_QUIT;
+                    break;
             }
         }
 
@@ -169,11 +162,10 @@ public class SaveMenu {
         int sw = Gdx.graphics.getWidth();
         int sh = Gdx.graphics.getHeight();
 
-        // overlay
         batch.draw(overlayTex, 0, 0, sw, sh + extraHeight);
 
         float boxW = 420f;
-        float boxH = 180f;
+        float boxH = (levelToOverwrite != null) ? 220f : 180f; // Boîte plus grande si on modifie
         float boxX = sw / 2f - boxW / 2f;
         float boxY = sh / 2f - boxH / 2f;
 
@@ -183,23 +175,24 @@ public class SaveMenu {
         font.draw(batch, "Sauvegarder / Quitter", boxX + 20, boxY + boxH - 20);
         font.getData().setScale(1f);
 
-        String opt0 = (menuSelection == 0 ? "> Enregistrer" : "  Enregistrer");
-        String opt1 = (menuSelection == 1 ? "> Menu principal" : "  Menu principal");
-        String opt2 = (menuSelection == 2 ? "> Quitter" : "  Quitter");
-
-        font.draw(batch, opt0, boxX + 40, boxY + boxH - 60);
-        font.draw(batch, opt1, boxX + 40, boxY + boxH - 100);
-        font.draw(batch, opt2, boxX + 40, boxY + boxH - 140);
+        float yPos = boxY + boxH - 60;
+        for (int i = 0; i < currentOptions.length; i++) {
+            String optionText = currentOptions[i];
+            if (optionText.equals("Ecraser") && levelToOverwrite != null) {
+                optionText = "Ecraser '" + levelToOverwrite + "'";
+            }
+            String finalOption = (menuSelection == i ? "> " : "  ") + optionText;
+            font.draw(batch, finalOption, boxX + 40, yPos);
+            yPos -= 40;
+        }
 
         if (typingName) {
-            // draw input rectangle
             float inW = boxW - 40f;
             float inH = 30f;
             float inX = boxX + 20f;
             float inY = boxY + 20f;
-            // background rect (reuse overlayTex for flat color)
             batch.draw(overlayTex, inX, inY, inW, inH);
-            font.draw(batch, "Nom fichier: " + filename + ( (System.currentTimeMillis()/500)%2==0 ? "_" : "" ), inX + 6f, inY + inH - 8f);
+            font.draw(batch, "Nom fichier: " + filename + ((System.currentTimeMillis()/500)%2==0 ? "_" : ""), inX + 6f, inY + inH - 8f);
         }
 
         if (confirmActive) {
@@ -207,7 +200,6 @@ public class SaveMenu {
         }
     }
 
-    // allow CreateMap to read filename after RESULT_SAVED
     public String getFilename() { return filename; }
 
     public void dispose() {

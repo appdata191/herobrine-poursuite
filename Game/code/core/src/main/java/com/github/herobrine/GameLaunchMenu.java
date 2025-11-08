@@ -8,7 +8,7 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 
 /**
  * Menu de lancement : fond identique à la carte ("Fond_simple.png").
- * updateInput() retourne : 0 = aucune action, 1 = lancer partie, 2 = créer carte (ici quitte).
+ * updateInput() retourne : 0 = aucune action, 1 = lancer partie, 2 = créer carte.
  */
 public class GameLaunchMenu {
     private boolean active = true;
@@ -27,7 +27,7 @@ public class GameLaunchMenu {
 
     /**
      * Handle navigation when active.
-     * @return 0 none, 1 start game, 2 create map (quit for now)
+     * @return 0 none, 1 start game, 2 create map
      */
     public int updateInput() {
         if (!active) return 0;
@@ -67,19 +67,15 @@ public class GameLaunchMenu {
         float boxX = sw / 2f - boxW / 2f;
         float boxY = sh / 2f - boxH / 2f;
 
-        // simple semi-transparent dark rectangle using font drawing background (no pixmap)
-        // draw a darker rectangle using the background stretched with low alpha would require a Pixmap;
-        // keep simple: draw title and options over the background.
         font.getData().setScale(2f);
-        font.draw(batch, "Herobrine Poursuite", boxX + 12, boxY + boxH - 12);
+        font.draw(batch, "Herobrine Poursuite", boxX + 12, boxY + boxH - 25);
         font.getData().setScale(1f);
 
         String s0 = (selection == 0 ? "> Lancer une partie" : "  Lancer une partie");
-        String s1 = (selection == 1 ? "> Créer une carte" : "  Créer une carte");
+        String s1 = (selection == 1 ? "> Creer une carte" : "  Creer une carte");
 
-        font.draw(batch, s0, boxX + 24, boxY + boxH - 60);
-        font.draw(batch, s1, boxX + 24, boxY + boxH - 100);
-        font.draw(batch, "(Créer une carte quitte pour l'instant)", boxX + 24, boxY + boxH - 140);
+        font.draw(batch, s0, boxX + 24, boxY + boxH - 80);
+        font.draw(batch, s1, boxX + 24, boxY + boxH - 120);
     }
 
     public void dispose() {
