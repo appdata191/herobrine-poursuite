@@ -1,4 +1,24 @@
+Bloc du dessous.png
+Bloc du dessus.png
+Bloc du dessus.xcf
+Fond_sapin.png
+Fond_simple.png
+GIMP retouche image/Bloc du dessous.jpg
+GIMP retouche image/Bloc du dessous.xcf
+GIMP retouche image/Bloc du dessus.jpg
+GIMP retouche image/Bloc du dessus.xcf
+GIMP retouche image/Creeper.png
+GIMP retouche image/Creeper.xcf
+GIMP retouche image/Fond_sapin.xcf
+GIMP retouche image/Fond_simple.png
+GIMP retouche image/Fond_simple.xcf
+GIMP retouche image/Pics.png
+GIMP retouche image/Pics.xcf
+Pics.png
+creeper.png
 herobrine.png
+levels/Fond_sapin.png
+levels/level1.txt
 libgdx.png
 pngegg.png
 potence.png

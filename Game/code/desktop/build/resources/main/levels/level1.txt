@@ -1,0 +1,15 @@
+# Ligne complète de blocs TOP (surface) en y=5 — le joueur marchera dessus
+# Les BOTTOM sous chaque TOP sont générés automatiquement par le loader.
+# Bloc isolé pour saut en x=5, y=7
+# Format: T x y  -> TOP
+
+# Ligne complète de TOP en y=5 : segment x=0..63
+# Bloc isolé pour saut
+T 0 5 63 5
+T 5 8
+
+# Creeper patrouille entre x=6 et x=9 sur la ligne y=6
+C 6 6 9 6
+
+# Pics stationnaires au-dessus du bloc (x=10,y=5)
+P 10 5
