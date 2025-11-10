@@ -7,8 +7,8 @@ import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
-import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer; // NOUVEAU : Import pour la grille
 import com.badlogic.gdx.math.Rectangle;
 
 import java.util.ArrayList;
@@ -27,6 +27,9 @@ public class CreateMap {
     private Texture scrollbarBgTex;
     private Texture scrollbarHandleTex;
     private Texture uiSlotTex;
+
+    // NOUVEAU : ShapeRenderer pour dessiner la grille
+    private final ShapeRenderer shapeRenderer;
 
     private boolean active = false;
 
@@ -94,6 +97,9 @@ public class CreateMap {
         creeperTex = new Texture("creeper.png");
         picsTex = new Texture("Pics.png");
         saveMenu = new SaveMenu(EXTRA_HEIGHT);
+
+        // NOUVEAU : Initialisation du ShapeRenderer
+        shapeRenderer = new ShapeRenderer();
 
         Pixmap pm = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
         pm.setColor(0.1f, 0.1f, 0.1f, 0.7f);
@@ -166,9 +172,7 @@ public class CreateMap {
 
                 switch (type) {
                     case "T":
-                        if (coords.size() == 2) {
-                            topSegments.add(new int[]{coords.get(0), coords.get(1), coords.get(0), coords.get(1)});
-                        } else if (coords.size() >= 4) {
+                        if (coords.size() >= 2) {
                             topSegments.add(new int[]{coords.get(0), coords.get(1), coords.get(2), coords.get(3)});
                         }
                         break;
@@ -191,6 +195,9 @@ public class CreateMap {
         }
     }
 
+    /**
+     * MODIFIÉ : Ajout des raccourcis clavier et de l'outil pipette.
+     */
     public int updateInput() {
         if (!active) return 0;
         float delta = Gdx.graphics.getDeltaTime();
@@ -230,6 +237,9 @@ public class CreateMap {
         hoverGX = worldMouseX / TILE;
         hoverGY = worldMouseY / TILE;
 
+        // NOUVEAU : Gestion des raccourcis clavier pour les outils
+        handleToolShortcuts();
+
         if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
             if (scrollbarHandle.contains(mx, my)) {
                 isDraggingScrollbar = true;
@@ -239,25 +249,13 @@ public class CreateMap {
                 resetPlacementState();
             }
             else if (currentMode == EditorMode.PLACING) {
-                Tool currentTool = tools[selectionIndex];
-                if (currentTool == Tool.TOP || currentTool == Tool.CREEPER) {
-                    if (anchorGX == null) {
-                        anchorGX = hoverGX;
-                        anchorGY = hoverGY;
-                    } else {
-                        previewGX = hoverGX;
-                        previewGY = hoverGY;
-                        if (currentTool == Tool.TOP) {
-                            topSegments.add(new int[]{anchorGX, anchorGY, previewGX, previewGY});
-                        } else {
-                            int startX = Math.min(anchorGX, previewGX);
-                            int endX = Math.max(anchorGX, previewGX);
-                            creepers.add(new EditorCreeper(startX, endX, anchorGY));
-                        }
-                        resetPlacementState();
-                    }
-                } else {
-                    placeItem(hoverGX, hoverGY);
+                handlePlacingClick();
+            }
+            // NOUVEAU : Logique de la pipette en mode SELECTION
+            else if (currentMode == EditorMode.SELECTION) {
+                if (pickToolFromMap(hoverGX, hoverGY)) {
+                    currentMode = EditorMode.PLACING;
+                    resetPlacementState();
                 }
             }
         }
@@ -282,6 +280,81 @@ public class CreateMap {
         return 0;
     }
 
+    /**
+     * NOUVEAU : Gère les raccourcis clavier 1, 2, 3 pour changer d'outil.
+     */
+    private void handleToolShortcuts() {
+        int[] keys = {Input.Keys.NUM_1, Input.Keys.NUM_2, Input.Keys.NUM_3};
+        for (int i = 0; i < keys.length && i < tools.length; i++) {
+            if (Gdx.input.isKeyJustPressed(keys[i])) {
+                selectionIndex = i;
+                currentMode = EditorMode.PLACING;
+                resetPlacementState();
+                break; // Un seul raccourci à la fois
+            }
+        }
+    }
+
+    /**
+     * NOUVEAU : Logique de la pipette. Tente de sélectionner un outil en cliquant sur la carte.
+     * @return true si un outil a été sélectionné, false sinon.
+     */
+    private boolean pickToolFromMap(int gx, int gy) {
+        // Priorité 1 : Creepers
+        for (EditorCreeper c : creepers) {
+            int creeperTileX = (int)(c.currentX / TILE);
+            int creeperBaseY = c.y;
+            if (gx == creeperTileX && (gy == creeperBaseY + 1 || gy == creeperBaseY + 2)) {
+                selectionIndex = 1; // Index de l'outil CREEPER
+                return true;
+            }
+        }
+
+        // Priorité 2 : Pics
+        for (int[] p : pics) {
+            if (p[0] == gx && p[1] == gy) {
+                selectionIndex = 2; // Index de l'outil PICS
+                return true;
+            }
+        }
+
+        // Priorité 3 : Blocs
+        for (int[] seg : topSegments) {
+            int x1 = Math.min(seg[0], seg[2]);
+            int x2 = Math.max(seg[0], seg[2]);
+            int y1 = Math.min(seg[1], seg[3]);
+            int y2 = Math.max(seg[1], seg[3]);
+            if (gx >= x1 && gx <= x2 && gy >= y1 && gy <= y2) {
+                selectionIndex = 0; // Index de l'outil TOP
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void handlePlacingClick() {
+        Tool currentTool = tools[selectionIndex];
+        if (currentTool == Tool.TOP || currentTool == Tool.CREEPER) {
+            if (anchorGX == null) {
+                anchorGX = hoverGX;
+                anchorGY = hoverGY;
+            } else {
+                previewGX = hoverGX;
+                previewGY = hoverGY;
+                if (currentTool == Tool.TOP) {
+                    topSegments.add(new int[]{anchorGX, anchorGY, previewGX, previewGY});
+                } else {
+                    int startX = Math.min(anchorGX, previewGX);
+                    int endX = Math.max(anchorGX, previewGX);
+                    creepers.add(new EditorCreeper(startX, endX, anchorGY));
+                }
+                resetPlacementState();
+            }
+        } else {
+            placeItem(hoverGX, hoverGY);
+        }
+    }
+
     private void placeItem(int gx, int gy) {
         Tool currentTool = tools[selectionIndex];
         if (currentTool == Tool.PICS) {
@@ -289,35 +362,25 @@ public class CreateMap {
         }
     }
 
-    /**
-     * CORRIGÉ : La logique de suppression du creeper prend maintenant en compte sa hauteur.
-     */
     private void deleteItem(int gx, int gy) {
-        // Priorité 1 : Supprimer les Creepers
         for (int i = creepers.size() - 1; i >= 0; i--) {
             EditorCreeper c = creepers.get(i);
-            // La position X du creeper en tuiles
             int creeperTileX = (int)(c.currentX / TILE);
-            // La position Y de la base du creeper en tuiles (le bloc sur lequel il marche)
             int creeperBaseY = c.y;
-            // Le creeper fait 2 tuiles de haut (120px / 60px)
             if (gx == creeperTileX && (gy == creeperBaseY + 1 || gy == creeperBaseY + 2)) {
                 creepers.remove(i);
                 return;
             }
         }
 
-        // Priorité 2 : Supprimer les Pics
         for (int i = pics.size() - 1; i >= 0; i--) {
             int[] p = pics.get(i);
-            // Le pic est sur la tuile (gx, gy)
             if (p[0] == gx && p[1] == gy) {
                 pics.remove(i);
                 return;
             }
         }
 
-        // Priorité 3 : Supprimer les blocs TOP
         for (int i = topSegments.size() - 1; i >= 0; i--) {
             int[] seg = topSegments.get(i);
             int x1 = Math.min(seg[0], seg[2]);
@@ -365,11 +428,38 @@ public class CreateMap {
         if (cameraX > maxCamX) cameraX = maxCamX;
     }
 
+    /**
+     * MODIFIÉ : Ajout du rendu de la grille.
+     */
     public void render(SpriteBatch batch, BitmapFont font) {
         if (!active) return;
 
         int sw = Gdx.graphics.getWidth();
         int sh = Gdx.graphics.getHeight();
+
+        // Le rendu doit respecter un ordre précis : Fond -> Grille -> Objets -> UI
+        batch.end(); // On arrête le batch pour pouvoir utiliser le ShapeRenderer
+
+        // NOUVEAU : Rendu de la grille
+        shapeRenderer.setProjectionMatrix(batch.getProjectionMatrix());
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
+        shapeRenderer.setColor(1f, 1f, 1f, 0.15f); // Blanc semi-transparent
+
+        int startGX = (int) (cameraX / TILE);
+        int endGX = (int) ((cameraX + sw) / TILE) + 1;
+        if (endGX > EDITOR_MAP_WIDTH_TILES) endGX = EDITOR_MAP_WIDTH_TILES;
+
+        // Lignes verticales
+        for (int gx = startGX; gx <= endGX; gx++) {
+            shapeRenderer.line(gx * TILE - cameraX, 0, gx * TILE - cameraX, sh);
+        }
+        // Lignes horizontales
+        for (int gy = 0; gy * TILE < sh; gy++) {
+            shapeRenderer.line(-cameraX, gy * TILE, EDITOR_MAP_WIDTH_PX - cameraX, gy * TILE);
+        }
+        shapeRenderer.end();
+
+        batch.begin(); // On redémarre le batch pour le reste du rendu
 
         float bgW = background.getWidth();
         float bgH = background.getHeight();
@@ -508,7 +598,7 @@ public class CreateMap {
         String instruction = "Mode: " + (currentMode == EditorMode.SELECTION ? "Selection/Destruction" : "Pose");
         font.getData().setScale(0.8f);
         font.draw(batch, instruction, 20, sh - 20);
-        font.draw(batch, "LMB: Placer/Selectionner Outil   RMB: Annuler/Detruire   ESC: Menu", 20, sh - 40);
+        font.draw(batch, "LMB: Placer/Pipette   RMB: Annuler/Detruire   ESC: Menu   1-3: Outils", 20, sh - 40);
         font.getData().setScale(1f);
 
         float scrollbarHeight = 20f;
@@ -535,7 +625,9 @@ public class CreateMap {
         if (scrollbarBgTex != null) scrollbarBgTex.dispose();
         if (scrollbarHandleTex != null) scrollbarHandleTex.dispose();
         if (uiSlotTex != null) uiSlotTex.dispose();
-        saveMenu.dispose();
+        if (saveMenu != null) saveMenu.dispose();
+        // NOUVEAU : Ne pas oublier de disposer le ShapeRenderer
+        if (shapeRenderer != null) shapeRenderer.dispose();
     }
 
     void saveToFile(String name) {
