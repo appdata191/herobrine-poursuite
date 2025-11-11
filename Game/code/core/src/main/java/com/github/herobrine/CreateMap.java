@@ -8,7 +8,7 @@ import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
-import com.badlogic.gdx.graphics.glutils.ShapeRenderer; // NOUVEAU : Import pour la grille
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Rectangle;
 
 import java.util.ArrayList;
@@ -19,20 +19,20 @@ import java.util.StringTokenizer;
 public class CreateMap {
     private final int TILE = 60;
     private final float EXTRA_HEIGHT;
-    private Texture background;
-    private Texture blockTop;
-    private Texture blockBottom;
-    private Texture creeperTex;
-    private Texture picsTex;
+    
+    // CORRIGÉ : Les textures sont maintenant des dépendances
+    private final Texture background;
+    private final Texture blockTop;
+    private final Texture blockBottom;
+    private final Texture creeperTex;
+    private final Texture picsTex;
+    
     private Texture scrollbarBgTex;
     private Texture scrollbarHandleTex;
     private Texture uiSlotTex;
 
-    // NOUVEAU : ShapeRenderer pour dessiner la grille
     private final ShapeRenderer shapeRenderer;
-
     private boolean active = false;
-
     private float cameraX = 0f;
     private final int EDITOR_MAP_WIDTH_TILES = 64;
     private final int EDITOR_MAP_WIDTH_PX = EDITOR_MAP_WIDTH_TILES * TILE;
@@ -49,11 +49,11 @@ public class CreateMap {
     private int selectionIndex = 0;
 
     private Integer hoverGX = null, hoverGY = null;
-
     private Integer anchorGX = null, anchorGY = null;
     private Integer previewGX = null, previewGY = null;
 
     private static class EditorCreeper {
+        // ... (classe interne identique)
         int startX, endX, y;
         float currentX;
         int direction = 1;
@@ -86,19 +86,18 @@ public class CreateMap {
     private final SaveMenu saveMenu;
     private final Rectangle scrollbarHandle = new Rectangle();
     private boolean isDraggingScrollbar = false;
-
     private final List<Rectangle> toolSlots = new ArrayList<>();
 
-    public CreateMap(float extraHeight) {
+    // CORRIGÉ : Le constructeur reçoit les textures en dépendances
+    public CreateMap(float extraHeight, Texture background, Texture blockTop, Texture blockBottom, Texture creeperTex, Texture picsTex) {
         this.EXTRA_HEIGHT = extraHeight;
-        background = new Texture("Fond_simple.png");
-        blockTop = new Texture("Bloc du dessus.png");
-        blockBottom = new Texture("Bloc du dessous.png");
-        creeperTex = new Texture("creeper.png");
-        picsTex = new Texture("Pics.png");
+        this.background = background;
+        this.blockTop = blockTop;
+        this.blockBottom = blockBottom;
+        this.creeperTex = creeperTex;
+        this.picsTex = picsTex;
+        
         saveMenu = new SaveMenu(EXTRA_HEIGHT);
-
-        // NOUVEAU : Initialisation du ShapeRenderer
         shapeRenderer = new ShapeRenderer();
 
         Pixmap pm = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
@@ -114,6 +113,7 @@ public class CreateMap {
         pm.dispose();
     }
 
+    // ... (le reste du fichier est identique à la version précédente)
     public void activate(String levelPathToLoad) {
         active = true;
         cameraX = 0;
@@ -172,15 +172,20 @@ public class CreateMap {
 
                 switch (type) {
                     case "T":
-                        if (coords.size() >= 2) {
+                        if (coords.size() >= 4) {
                             topSegments.add(new int[]{coords.get(0), coords.get(1), coords.get(2), coords.get(3)});
+                        } else if (coords.size() >= 2) {
+                            int x = coords.get(0);
+                            int y = coords.get(1);
+                            topSegments.add(new int[]{x, y, x, y});
                         }
                         break;
                     case "C":
-                        if (coords.size() >= 4) {
-                            int startX = Math.min(coords.get(0), coords.get(2));
-                            int endX = Math.max(coords.get(0), coords.get(2));
-                            creepers.add(new EditorCreeper(startX, endX, coords.get(1)));
+                        if (coords.size() >= 3) {
+                            int startX = coords.get(0);
+                            int y = coords.get(1);
+                            int endX = (coords.size() >= 4) ? coords.get(2) : startX;
+                            creepers.add(new EditorCreeper(Math.min(startX, endX), Math.max(startX, endX), y));
                         }
                         break;
                     case "P":
@@ -195,9 +200,6 @@ public class CreateMap {
         }
     }
 
-    /**
-     * MODIFIÉ : Ajout des raccourcis clavier et de l'outil pipette.
-     */
     public int updateInput() {
         if (!active) return 0;
         float delta = Gdx.graphics.getDeltaTime();
@@ -206,24 +208,35 @@ public class CreateMap {
 
         if (saveMenu.isActive()) {
             int r = saveMenu.updateInput();
-            if (r == SaveMenu.RESULT_SAVED) {
-                String name = saveMenu.getFilename();
-                if (name != null && !name.trim().isEmpty()) {
-                    saveToFile(name.trim());
-                    this.loadedLevelName = name.trim();
-                }
-                saveMenu.deactivate();
-                return 0;
-            } else if (r == SaveMenu.RESULT_RETURN_MENU) {
-                saveMenu.deactivate();
-                deactivate();
-                return 1;
-            } else if (r == SaveMenu.RESULT_QUIT) {
-                saveMenu.deactivate();
-                deactivate();
-                return 2;
-            } else {
-                return 0;
+            switch (r) {
+                case SaveMenu.RESULT_SAVE_AS_VALIDATE:
+                    String newName = saveMenu.getFilenameInput();
+                    if (newName != null && !newName.trim().isEmpty()) {
+                        saveToFile(newName);
+                        this.loadedLevelName = newName;
+                    }
+                    saveMenu.deactivate();
+                    return 0;
+                case SaveMenu.RESULT_SAVE_DIRECT:
+                    if (loadedLevelName != null) {
+                        saveToFile(loadedLevelName);
+                    }
+                    saveMenu.deactivate();
+                    return 0;
+                case SaveMenu.RESULT_RETURN_MENU:
+                    saveMenu.deactivate();
+                    deactivate();
+                    return 1;
+                case SaveMenu.RESULT_QUIT:
+                    Gdx.app.exit();
+                    return 0;
+                case SaveMenu.RESULT_RESUME_EDITING:
+                    saveMenu.deactivate();
+                    return 0;
+                case SaveMenu.RESULT_SAVE_AS_CANCEL:
+                    return 0;
+                default:
+                    return 0;
             }
         }
 
@@ -237,7 +250,6 @@ public class CreateMap {
         hoverGX = worldMouseX / TILE;
         hoverGY = worldMouseY / TILE;
 
-        // NOUVEAU : Gestion des raccourcis clavier pour les outils
         handleToolShortcuts();
 
         if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
@@ -251,7 +263,6 @@ public class CreateMap {
             else if (currentMode == EditorMode.PLACING) {
                 handlePlacingClick();
             }
-            // NOUVEAU : Logique de la pipette en mode SELECTION
             else if (currentMode == EditorMode.SELECTION) {
                 if (pickToolFromMap(hoverGX, hoverGY)) {
                     currentMode = EditorMode.PLACING;
@@ -280,9 +291,6 @@ public class CreateMap {
         return 0;
     }
 
-    /**
-     * NOUVEAU : Gère les raccourcis clavier 1, 2, 3 pour changer d'outil.
-     */
     private void handleToolShortcuts() {
         int[] keys = {Input.Keys.NUM_1, Input.Keys.NUM_2, Input.Keys.NUM_3};
         for (int i = 0; i < keys.length && i < tools.length; i++) {
@@ -290,42 +298,35 @@ public class CreateMap {
                 selectionIndex = i;
                 currentMode = EditorMode.PLACING;
                 resetPlacementState();
-                break; // Un seul raccourci à la fois
+                break;
             }
         }
     }
 
-    /**
-     * NOUVEAU : Logique de la pipette. Tente de sélectionner un outil en cliquant sur la carte.
-     * @return true si un outil a été sélectionné, false sinon.
-     */
     private boolean pickToolFromMap(int gx, int gy) {
-        // Priorité 1 : Creepers
         for (EditorCreeper c : creepers) {
             int creeperTileX = (int)(c.currentX / TILE);
             int creeperBaseY = c.y;
             if (gx == creeperTileX && (gy == creeperBaseY + 1 || gy == creeperBaseY + 2)) {
-                selectionIndex = 1; // Index de l'outil CREEPER
+                selectionIndex = 1;
                 return true;
             }
         }
 
-        // Priorité 2 : Pics
         for (int[] p : pics) {
             if (p[0] == gx && p[1] == gy) {
-                selectionIndex = 2; // Index de l'outil PICS
+                selectionIndex = 2;
                 return true;
             }
         }
 
-        // Priorité 3 : Blocs
         for (int[] seg : topSegments) {
             int x1 = Math.min(seg[0], seg[2]);
             int x2 = Math.max(seg[0], seg[2]);
             int y1 = Math.min(seg[1], seg[3]);
             int y2 = Math.max(seg[1], seg[3]);
             if (gx >= x1 && gx <= x2 && gy >= y1 && gy <= y2) {
-                selectionIndex = 0; // Index de l'outil TOP
+                selectionIndex = 0;
                 return true;
             }
         }
@@ -428,38 +429,32 @@ public class CreateMap {
         if (cameraX > maxCamX) cameraX = maxCamX;
     }
 
-    /**
-     * MODIFIÉ : Ajout du rendu de la grille.
-     */
     public void render(SpriteBatch batch, BitmapFont font) {
         if (!active) return;
 
-        int sw = Gdx.graphics.getWidth();
-        int sh = Gdx.graphics.getHeight();
-
-        // Le rendu doit respecter un ordre précis : Fond -> Grille -> Objets -> UI
-        batch.end(); // On arrête le batch pour pouvoir utiliser le ShapeRenderer
-
-        // NOUVEAU : Rendu de la grille
+        if (batch.isDrawing()) {
+            batch.end();
+        }
+        
         shapeRenderer.setProjectionMatrix(batch.getProjectionMatrix());
         shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
-        shapeRenderer.setColor(1f, 1f, 1f, 0.15f); // Blanc semi-transparent
+        shapeRenderer.setColor(0f, 0f, 0f, 1f);
 
+        int sw = Gdx.graphics.getWidth();
+        int sh = Gdx.graphics.getHeight();
         int startGX = (int) (cameraX / TILE);
         int endGX = (int) ((cameraX + sw) / TILE) + 1;
         if (endGX > EDITOR_MAP_WIDTH_TILES) endGX = EDITOR_MAP_WIDTH_TILES;
 
-        // Lignes verticales
         for (int gx = startGX; gx <= endGX; gx++) {
             shapeRenderer.line(gx * TILE - cameraX, 0, gx * TILE - cameraX, sh);
         }
-        // Lignes horizontales
         for (int gy = 0; gy * TILE < sh; gy++) {
             shapeRenderer.line(-cameraX, gy * TILE, EDITOR_MAP_WIDTH_PX - cameraX, gy * TILE);
         }
         shapeRenderer.end();
 
-        batch.begin(); // On redémarre le batch pour le reste du rendu
+        batch.begin();
 
         float bgW = background.getWidth();
         float bgH = background.getHeight();
@@ -556,7 +551,10 @@ public class CreateMap {
 
         renderUI(batch, font);
 
-        if (saveMenu.isActive()) saveMenu.render(batch, font);
+        batch.end();
+        if (saveMenu.isActive()) {
+            saveMenu.render(batch, shapeRenderer, font);
+        }
     }
 
     private void renderUI(SpriteBatch batch, BitmapFont font) {
@@ -616,18 +614,13 @@ public class CreateMap {
         }
     }
 
+    // CORRIGÉ : Ne dispose plus les textures partagées
     public void dispose() {
-        if (background != null) background.dispose();
-        if (blockTop != null) blockTop.dispose();
-        if (blockBottom != null) blockBottom.dispose();
-        if (creeperTex != null) creeperTex.dispose();
-        if (picsTex != null) picsTex.dispose();
+        if (saveMenu != null) saveMenu.dispose();
+        if (shapeRenderer != null) shapeRenderer.dispose();
         if (scrollbarBgTex != null) scrollbarBgTex.dispose();
         if (scrollbarHandleTex != null) scrollbarHandleTex.dispose();
         if (uiSlotTex != null) uiSlotTex.dispose();
-        if (saveMenu != null) saveMenu.dispose();
-        // NOUVEAU : Ne pas oublier de disposer le ShapeRenderer
-        if (shapeRenderer != null) shapeRenderer.dispose();
     }
 
     void saveToFile(String name) {
@@ -635,11 +628,7 @@ public class CreateMap {
             StringBuilder sb = new StringBuilder();
             sb.append("# Generated by CreateMap\n");
             for (int[] seg : topSegments) {
-                if (seg[0] == seg[2] && seg[1] == seg[3]) {
-                    sb.append("T ").append(seg[0]).append(" ").append(seg[1]).append("\n");
-                } else {
-                    sb.append("T ").append(seg[0]).append(" ").append(seg[1]).append(" ").append(seg[2]).append(" ").append(seg[3]).append("\n");
-                }
+                sb.append("T ").append(seg[0]).append(" ").append(seg[1]).append(" ").append(seg[2]).append(" ").append(seg[3]).append("\n");
             }
             for (EditorCreeper c : creepers) {
                 sb.append("C ").append(c.startX).append(" ").append(c.y).append(" ").append(c.endX).append(" ").append(c.y).append("\n");

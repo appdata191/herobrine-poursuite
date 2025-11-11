@@ -2,207 +2,246 @@ package com.github.herobrine;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
-import com.badlogic.gdx.InputAdapter;
-import com.badlogic.gdx.InputProcessor;
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.math.Rectangle;
 
 public class SaveMenu {
-    public static final int RESULT_NONE = 0;
-    public static final int RESULT_SAVED = 1;
-    public static final int RESULT_RETURN_MENU = 2;
-    public static final int RESULT_QUIT = 3;
-
-    private Texture overlayTex;
     private boolean active = false;
-    private int menuSelection = 0;
-    private final float extraHeight;
+    private final Texture overlayBackground;
+    private final Texture whiteTexture;
+    private final Texture goldTexture;
+    private final Texture inputBgTexture;
+    private final float EXTRA_HEIGHT;
 
-    // MODIFIÉ : Contexte de sauvegarde
-    private String levelToOverwrite = null; // Nom du fichier en cours de modif
-    private final String[] optionsNewMap = {"Enregistrer sous...", "Menu principal", "Quitter"};
-    private final String[] optionsModifyMap = {"Ecraser", "Enregistrer sous...", "Menu principal", "Quitter"};
-    private String[] currentOptions;
+    private enum SaveMenuState { MAIN_OPTIONS, SAVE_AS_PROMPT }
+    private SaveMenuState currentState = SaveMenuState.MAIN_OPTIONS;
 
-    private boolean typingName = false;
-    private String filename = "";
-    private InputProcessor previousInputProcessor = null;
-    private final InputAdapter typingProcessor = new InputAdapter() {
-        @Override
-        public boolean keyTyped(char character) {
-            if (!typingName) return false;
-            if (character == '\r' || character == '\n') return false;
-            if (character == '\b') {
-                if (filename.length() > 0) filename = filename.substring(0, filename.length() - 1);
-                return true;
-            }
-            if ((character >= 'a' && character <= 'z') ||
-                (character >= 'A' && character <= 'Z') ||
-                (character >= '0' && character <= '9') ||
-                character == '-' || character == '_') { // Point retiré pour éviter les confusions
-                if (filename.length() < 64) filename += character;
-                return true;
-            }
-            return false;
-        }
-    };
+    private final Rectangle resumeButton;
+    private final Rectangle saveAsButton;
+    private final Rectangle saveButton;
+    private final Rectangle returnMenuButton;
+    private final Rectangle quitButton;
 
-    private boolean confirmActive = false;
-    private String confirmMsg = "";
-    private int confirmAction = -1;
+    private final Rectangle filenameInputBox;
+    private final Rectangle validateButton;
+    private final Rectangle cancelButton;
+
+    private String filenameInput = "";
+    private String loadedLevelName = null;
+    private final GlyphLayout layout = new GlyphLayout();
+
+    public static final int RESULT_NONE = 0;
+    public static final int RESULT_RESUME_EDITING = 1;
+    public static final int RESULT_SAVE_AS_VALIDATE = 3;
+    public static final int RESULT_SAVE_DIRECT = 4;
+    public static final int RESULT_RETURN_MENU = 5;
+    public static final int RESULT_QUIT = 6;
+    public static final int RESULT_SAVE_AS_CANCEL = 7;
 
     public SaveMenu(float extraHeight) {
-        this.extraHeight = extraHeight;
-        Pixmap pm = new Pixmap(1,1, Pixmap.Format.RGBA8888);
-        pm.setColor(0f,0f,0f,0.6f);
+        this.EXTRA_HEIGHT = extraHeight;
+        Pixmap pm = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
+        pm.setColor(0.1f, 0.1f, 0.2f, 0.8f);
         pm.fill();
-        overlayTex = new Texture(pm);
+        overlayBackground = new Texture(pm);
+        
+        pm.setColor(Color.WHITE);
+        pm.fill();
+        whiteTexture = new Texture(pm);
+
+        pm.setColor(Color.GOLD);
+        pm.fill();
+        goldTexture = new Texture(pm);
+
+        pm.setColor(0.2f, 0.2f, 0.25f, 1f);
+        pm.fill();
+        inputBgTexture = new Texture(pm);
         pm.dispose();
+
+        float width = 400;
+        float height = 50;
+        float screenW = Gdx.graphics.getWidth();
+        float centerX = screenW / 2f;
+        
+        float currentY = Gdx.graphics.getHeight() / 2f + 150f;
+        resumeButton = new Rectangle(centerX - width / 2, currentY, width, height);
+        currentY -= (height + 20);
+        saveAsButton = new Rectangle(centerX - width / 2, currentY, width, height);
+        currentY -= (height + 20);
+        saveButton = new Rectangle(centerX - width / 2, currentY, width, height);
+        currentY -= (height + 20);
+        returnMenuButton = new Rectangle(centerX - width / 2, currentY, width, height);
+        currentY -= (height + 20);
+        quitButton = new Rectangle(centerX - width / 2, currentY, width, height);
+
+        currentY = Gdx.graphics.getHeight() / 2f + 50f;
+        filenameInputBox = new Rectangle(centerX - width / 2, currentY, width, height);
+        currentY -= (height + 20);
+        validateButton = new Rectangle(centerX - width / 2, currentY, width / 2 - 10, height);
+        cancelButton = new Rectangle(centerX + 10, currentY, width / 2 - 10, height);
     }
 
-    // MODIFIÉ : La méthode d'activation prend le contexte
-    public void activate(String loadedLevelName) {
-        this.levelToOverwrite = loadedLevelName;
-        if (this.levelToOverwrite != null) {
-            currentOptions = optionsModifyMap;
-        } else {
-            currentOptions = optionsNewMap;
-        }
+    public void activate(String currentLoadedLevelName) {
         active = true;
-        menuSelection = 0;
-        typingName = false;
-        confirmActive = false;
+        this.loadedLevelName = currentLoadedLevelName;
+        this.filenameInput = "";
+        this.currentState = SaveMenuState.MAIN_OPTIONS;
     }
 
     public void deactivate() {
         active = false;
-        typingName = false;
-        confirmActive = false;
-        levelToOverwrite = null;
     }
 
-    public boolean isActive() { return active; }
+    public boolean isActive() {
+        return active;
+    }
+
+    public String getFilenameInput() {
+        return filenameInput;
+    }
 
     public int updateInput() {
         if (!active) return RESULT_NONE;
 
-        if (confirmActive) {
-            if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) {
-                confirmActive = false;
-                active = false;
-                return confirmAction;
-            }
-            if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
-                confirmActive = false;
-            }
-            return RESULT_NONE;
+        if (currentState == SaveMenuState.SAVE_AS_PROMPT) {
+            handleTextInput();
         }
 
-        if (typingName) {
-            if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) {
-                typingName = false;
-                Gdx.input.setInputProcessor(previousInputProcessor);
-                previousInputProcessor = null;
-                // On ne désactive pas le menu, on retourne le résultat
-                // active = false;
-                return RESULT_SAVED;
+        if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+            if (currentState == SaveMenuState.SAVE_AS_PROMPT) {
+                currentState = SaveMenuState.MAIN_OPTIONS;
+                filenameInput = "";
+                return RESULT_SAVE_AS_CANCEL;
+            } else {
+                return RESULT_RESUME_EDITING;
             }
-            if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
-                typingName = false;
-                filename = "";
-                Gdx.input.setInputProcessor(previousInputProcessor);
-                previousInputProcessor = null;
-                return RESULT_NONE;
-            }
-            return RESULT_NONE;
         }
 
-        if (Gdx.input.isKeyJustPressed(Input.Keys.DOWN) || Gdx.input.isKeyJustPressed(Input.Keys.S)) {
-            menuSelection = Math.min(currentOptions.length - 1, menuSelection + 1);
-        }
-        if (Gdx.input.isKeyJustPressed(Input.Keys.UP) || Gdx.input.isKeyJustPressed(Input.Keys.W)) {
-            menuSelection = Math.max(0, menuSelection - 1);
-        }
+        if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
+            int mx = Gdx.input.getX();
+            int my = Gdx.graphics.getHeight() - Gdx.input.getY();
 
-        if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) {
-            String selectedOption = currentOptions[menuSelection];
-
-            switch (selectedOption) {
-                case "Ecraser":
-                    // On pré-remplit le nom de fichier et on retourne "SAVED"
-                    this.filename = this.levelToOverwrite;
-                    return RESULT_SAVED;
-                case "Enregistrer sous...":
-                    // On active le mode de saisie de texte
-                    typingName = true;
-                    filename = "";
-                    previousInputProcessor = Gdx.input.getInputProcessor();
-                    Gdx.input.setInputProcessor(typingProcessor);
+            if (currentState == SaveMenuState.MAIN_OPTIONS) {
+                if (resumeButton.contains(mx, my)) return RESULT_RESUME_EDITING;
+                if (saveAsButton.contains(mx, my)) {
+                    currentState = SaveMenuState.SAVE_AS_PROMPT;
+                    filenameInput = "";
                     return RESULT_NONE;
-                case "Menu principal":
-                    confirmActive = true;
-                    confirmMsg = "Retour au menu ? (ENTER pour confirmer, ESC pour annuler)";
-                    confirmAction = RESULT_RETURN_MENU;
-                    break;
-                case "Quitter":
-                    confirmActive = true;
-                    confirmMsg = "Quitter ? (ENTER pour confirmer, ESC pour annuler)";
-                    confirmAction = RESULT_QUIT;
-                    break;
+                }
+                if (saveButton.contains(mx, my)) {
+                    if (loadedLevelName == null) {
+                        currentState = SaveMenuState.SAVE_AS_PROMPT;
+                        filenameInput = "";
+                        return RESULT_NONE;
+                    } else {
+                        return RESULT_SAVE_DIRECT;
+                    }
+                }
+                if (returnMenuButton.contains(mx, my)) return RESULT_RETURN_MENU;
+                if (quitButton.contains(mx, my)) return RESULT_QUIT;
+            } else if (currentState == SaveMenuState.SAVE_AS_PROMPT) {
+                if (validateButton.contains(mx, my) && !filenameInput.trim().isEmpty()) {
+                    return RESULT_SAVE_AS_VALIDATE;
+                }
+                if (cancelButton.contains(mx, my)) {
+                    currentState = SaveMenuState.MAIN_OPTIONS;
+                    filenameInput = "";
+                    return RESULT_SAVE_AS_CANCEL;
+                }
             }
         }
-
         return RESULT_NONE;
     }
 
-    public void render(SpriteBatch batch, BitmapFont font) {
-        if (!active) return;
-        int sw = Gdx.graphics.getWidth();
-        int sh = Gdx.graphics.getHeight();
-
-        batch.draw(overlayTex, 0, 0, sw, sh + extraHeight);
-
-        float boxW = 420f;
-        float boxH = (levelToOverwrite != null) ? 220f : 180f; // Boîte plus grande si on modifie
-        float boxX = sw / 2f - boxW / 2f;
-        float boxY = sh / 2f - boxH / 2f;
-
-        batch.draw(overlayTex, boxX, boxY, boxW, boxH);
-
-        font.getData().setScale(1.4f);
-        font.draw(batch, "Sauvegarder / Quitter", boxX + 20, boxY + boxH - 20);
-        font.getData().setScale(1f);
-
-        float yPos = boxY + boxH - 60;
-        for (int i = 0; i < currentOptions.length; i++) {
-            String optionText = currentOptions[i];
-            if (optionText.equals("Ecraser") && levelToOverwrite != null) {
-                optionText = "Ecraser '" + levelToOverwrite + "'";
+    private void handleTextInput() {
+        if (Gdx.input.isKeyJustPressed(Input.Keys.BACKSPACE) && !filenameInput.isEmpty()) {
+            filenameInput = filenameInput.substring(0, filenameInput.length() - 1);
+        } else {
+            for (int i = Input.Keys.A; i <= Input.Keys.Z; i++) {
+                if (Gdx.input.isKeyJustPressed(i)) filenameInput += Input.Keys.toString(i).toLowerCase();
             }
-            String finalOption = (menuSelection == i ? "> " : "  ") + optionText;
-            font.draw(batch, finalOption, boxX + 40, yPos);
-            yPos -= 40;
-        }
-
-        if (typingName) {
-            float inW = boxW - 40f;
-            float inH = 30f;
-            float inX = boxX + 20f;
-            float inY = boxY + 20f;
-            batch.draw(overlayTex, inX, inY, inW, inH);
-            font.draw(batch, "Nom fichier: " + filename + ((System.currentTimeMillis()/500)%2==0 ? "_" : ""), inX + 6f, inY + inH - 8f);
-        }
-
-        if (confirmActive) {
-            font.draw(batch, confirmMsg, boxX + 20, boxY + 50);
+            for (int i = Input.Keys.NUM_0; i <= Input.Keys.NUM_9; i++) {
+                if (Gdx.input.isKeyJustPressed(i)) filenameInput += Input.Keys.toString(i);
+            }
+            if (Gdx.input.isKeyJustPressed(Input.Keys.MINUS)) filenameInput += "-";
         }
     }
 
-    public String getFilename() { return filename; }
+    public void render(SpriteBatch batch, ShapeRenderer shapeRenderer, BitmapFont font) {
+        if (!active) return;
+
+        float screenW = Gdx.graphics.getWidth();
+        float screenH = Gdx.graphics.getHeight();
+        float centerX = screenW / 2f;
+        
+        batch.begin();
+        batch.setColor(1, 1, 1, 1);
+        batch.draw(overlayBackground, 0, 0, screenW, screenH + EXTRA_HEIGHT);
+
+        if (currentState == SaveMenuState.MAIN_OPTIONS) {
+            drawButton(batch, font, resumeButton, "Reprendre", false);
+            drawButton(batch, font, saveAsButton, "Enregistrer sous", false);
+            drawButton(batch, font, saveButton, (loadedLevelName == null ? "Enregistrer (nouveau)" : "Enregistrer"), false);
+            drawButton(batch, font, returnMenuButton, "Retour au menu principal", false);
+            drawButton(batch, font, quitButton, "Quitter le jeu", false);
+        } else if (currentState == SaveMenuState.SAVE_AS_PROMPT) {
+            font.setColor(Color.WHITE);
+            layout.setText(font, "Enregistrer sous");
+            font.draw(batch, layout, centerX - layout.width / 2, Gdx.graphics.getHeight() / 2f + 120f);
+
+            drawTextInput(batch, font, filenameInputBox, "Nom du fichier...");
+            
+            drawButton(batch, font, validateButton, "Valider", filenameInput.trim().isEmpty());
+            drawButton(batch, font, cancelButton, "Annuler", false);
+        }
+        
+        font.setColor(Color.WHITE);
+        batch.end();
+    }
+
+    private void drawButton(SpriteBatch batch, BitmapFont font, Rectangle rect, String text, boolean disabled) {
+        float borderThickness = 4f;
+        batch.setColor(Color.GOLD);
+        batch.draw(goldTexture, rect.x, rect.y, rect.width, rect.height);
+        batch.setColor(Color.WHITE);
+        batch.draw(whiteTexture, rect.x + borderThickness, rect.y + borderThickness, rect.width - 2 * borderThickness, rect.height - 2 * borderThickness);
+        
+        font.setColor(disabled ? Color.GRAY : Color.BLACK);
+        layout.setText(font, text);
+        // CORRIGÉ : Utilisation de la chaîne de caractères `text` au lieu de `layout`
+        font.draw(batch, text, rect.x + (rect.width - layout.width) / 2, rect.y + (rect.height + layout.height) / 2);
+    }
+    
+    private void drawTextInput(SpriteBatch batch, BitmapFont font, Rectangle rect, String placeholder) {
+        float borderThickness = 4f;
+        batch.setColor(Color.GOLD);
+        batch.draw(goldTexture, rect.x, rect.y, rect.width, rect.height);
+        batch.setColor(Color.DARK_GRAY);
+        batch.draw(inputBgTexture, rect.x + borderThickness, rect.y + borderThickness, rect.width - 2 * borderThickness, rect.height - 2 * borderThickness);
+
+        String textToDraw;
+        if (filenameInput.isEmpty()) {
+            font.setColor(Color.LIGHT_GRAY);
+            textToDraw = placeholder;
+        } else {
+            font.setColor(Color.WHITE);
+            textToDraw = filenameInput;
+        }
+        layout.setText(font, textToDraw);
+        // CORRIGÉ : Utilisation de la chaîne de caractères `textToDraw` au lieu de `layout`
+        font.draw(batch, textToDraw, rect.x + (rect.width - layout.width) / 2, rect.y + (rect.height + layout.height) / 2);
+    }
 
     public void dispose() {
-        if (overlayTex != null) overlayTex.dispose();
+        if (overlayBackground != null) overlayBackground.dispose();
+        if (whiteTexture != null) whiteTexture.dispose();
+        if (goldTexture != null) goldTexture.dispose();
+        if (inputBgTexture != null) inputBgTexture.dispose();
     }
 }

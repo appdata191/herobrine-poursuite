@@ -8,12 +8,12 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 public class Joueur {
     private Texture texture;
     private float x, y;
-    private float speed = 200f;
+    private float speed = 300f;
 
     // physics
     private float vy = 0f;
     private final float GRAVITY = -1200f;
-    private final float JUMP_IMPULSE = 750f;
+    private final float JUMP_IMPULSE = 700f;
     private boolean onGround = true;
 
     private float elapsedTime = 0f;

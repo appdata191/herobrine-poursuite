@@ -18,6 +18,8 @@ Pics.png
 assets/levels/level1.txt.txt
 assets/levels/level2.txt.txt
 assets/levels/niveau1.txt.txt
+assets/levels/test.txt
+assets/levels/test1.txt
 creeper.png
 herobrine.png
 levels/Fond_sapin.png

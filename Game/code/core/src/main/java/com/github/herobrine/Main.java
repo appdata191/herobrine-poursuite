@@ -4,217 +4,206 @@ import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.GL20;
-import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 
 public class Main extends ApplicationAdapter {
     private SpriteBatch batch;
+    private ShapeRenderer shapeRenderer;
     private BitmapFont font;
+    private Skin uiSkin;
 
+    // Textures
+    private Texture background, blockTop, blockBottom, creeperTex, picsTex;
+
+    // Objets du jeu
     private Carte carte;
     private Joueur joueur;
 
-    private float cameraX = 0f;
-    private boolean gameOver = false;
-    private String gameOverMessage = null;
-
-    private PauseMenu pauseMenu;
-    private GameOverMenu gameOverMenu;
-    private GameLaunchMenu launchMenu;
-    private LevelSelectionMenu levelSelectionMenu;
-    private EditorStartMenu editorStartMenu;
-
-    private boolean isEditing = false;
-
-    private static final float OVERLAY_ALPHA = 0.6f;
-    private static final float BACKGROUND_EXTRA_HEIGHT = 60f;
-
+    // Écrans et Menus
+    private GameLaunchMenuScreen launchMenu;
+    private EditorStartMenuScreen editorStartMenu;
+    private PauseMenuOverlay pauseMenu;
+    private GameOverMenuOverlay gameOverMenu;
+    private LevelSelectionMenuScreen levelSelectionMenu;
     private CreateMap createMap;
+
+    // États
+    private float cameraX = 0f;
+    private boolean isEditing = false;
+    private static final float BACKGROUND_EXTRA_HEIGHT = 60f;
 
     @Override
     public void create() {
         batch = new SpriteBatch();
+        shapeRenderer = new ShapeRenderer();
         font = new BitmapFont();
 
-        launchMenu = new GameLaunchMenu(BACKGROUND_EXTRA_HEIGHT);
-        pauseMenu = new PauseMenu(OVERLAY_ALPHA, BACKGROUND_EXTRA_HEIGHT);
-        gameOverMenu = new GameOverMenu(OVERLAY_ALPHA, BACKGROUND_EXTRA_HEIGHT);
-        createMap = new CreateMap(BACKGROUND_EXTRA_HEIGHT);
-        levelSelectionMenu = new LevelSelectionMenu(BACKGROUND_EXTRA_HEIGHT);
-        editorStartMenu = new EditorStartMenu(BACKGROUND_EXTRA_HEIGHT);
+        // Chargement des textures
+        background = new Texture("Fond_simple.png");
+        blockTop = new Texture("Bloc du dessus.png");
+        blockBottom = new Texture("Bloc du dessous.png");
+        creeperTex = new Texture("creeper.png");
+        picsTex = new Texture("Pics.png");
+
+        uiSkin = UIFactory.createSkin(font);
+        carte = new Carte(blockTop, blockBottom);
+        createMap = new CreateMap(BACKGROUND_EXTRA_HEIGHT, background, blockTop, blockBottom, creeperTex, picsTex);
+
+        // Initialisation des écrans de menu
+        launchMenu = new GameLaunchMenuScreen(uiSkin, this);
+        editorStartMenu = new EditorStartMenuScreen(uiSkin, this);
+        pauseMenu = new PauseMenuOverlay(uiSkin, this);
+        gameOverMenu = new GameOverMenuOverlay(uiSkin, this);
+        levelSelectionMenu = new LevelSelectionMenuScreen(uiSkin, this);
+
+        launchMenu.activate();
+    }
+
+    // --- API Publique pour les Menus ---
+    public void startLevelSelection(boolean forEditing) {
+        this.isEditing = forEditing;
+        levelSelectionMenu.activate();
+    }
+
+    public void returnToPreviousMenuFromSelection() {
+        if (isEditing) {
+            editorStartMenu.activate();
+        } else {
+            launchMenu.activate();
+        }
+    }
+
+    public void onLevelSelected(String levelPath) {
+        if (isEditing) {
+            createMap.activate(levelPath);
+        } else {
+            initGame(levelPath);
+        }
+    }
+
+    public void showEditorMenu() { editorStartMenu.activate(); }
+    public void startEditor() { createMap.activate(null); }
+    public void returnToLaunchMenu() { goToLaunchMenu(); }
+    public void quitGame() { Gdx.app.exit(); }
+    public void togglePause() {
+        if (gameOverMenu.isActive()) return;
+        if (pauseMenu.isActive()) {
+            pauseMenu.deactivate();
+        } else {
+            pauseMenu.activate();
+        }
+    }
+    public void restartLevel() {
+        if (carte.getCurrentLevelPath() != null) {
+            gameOverMenu.deactivate();
+            initGame(carte.getCurrentLevelPath());
+        } else {
+            returnToLaunchMenu();
+        }
+    }
+    private void triggerGameOver(String message) {
+        if (gameOverMenu.isActive()) return;
+        gameOverMenu.setMessage(message);
+        gameOverMenu.activate();
     }
 
     private void initGame(String levelPath) {
-        if (carte != null) carte.dispose();
-        if (joueur != null) joueur.dispose();
-
-        carte = new Carte();
         carte.create(levelPath);
-
-        final int startTileX = 5;
-        float startX = startTileX * carte.getTile();
-        float startY = carte.getSurfaceYAt(startTileX);
-
-        joueur = new Joueur(startX, startY);
+        if (joueur != null) joueur.dispose();
+        joueur = new Joueur(carte.getTile() * 5, carte.getSurfaceYAt(5));
         joueur.create();
-
         cameraX = 0f;
-        gameOver = false;
-        gameOverMessage = null;
-        if (gameOverMenu != null) gameOverMenu.deactivate();
-        if (pauseMenu != null && pauseMenu.isPaused()) pauseMenu.deactivate();
+        if (pauseMenu.isActive()) pauseMenu.deactivate();
+        if (gameOverMenu.isActive()) gameOverMenu.deactivate();
     }
 
     private void goToLaunchMenu() {
-        if (carte != null) carte.dispose();
-        if (joueur != null) joueur.dispose();
+        if (joueur != null) {
+            joueur.dispose();
+            joueur = null;
+        }
+        carte.clear();
         
-        gameOver = false;
-        isEditing = false;
-        if (pauseMenu != null) pauseMenu.deactivate();
-        if (gameOverMenu != null) gameOverMenu.deactivate();
-        if (levelSelectionMenu != null) levelSelectionMenu.deactivate();
-        if (editorStartMenu != null) editorStartMenu.deactivate();
-        if (createMap != null) createMap.deactivate();
+        launchMenu.deactivate();
+        editorStartMenu.deactivate();
+        levelSelectionMenu.deactivate();
+        createMap.deactivate();
+        pauseMenu.deactivate();
+        gameOverMenu.deactivate();
 
-        if (launchMenu != null) launchMenu.activate();
+        launchMenu.activate();
     }
 
     @Override
     public void render() {
         float delta = Gdx.graphics.getDeltaTime();
-        if (delta <= 0) return;
-
-        if (launchMenu.isActive()) {
-            int action = launchMenu.updateInput();
-            if (action == 1) {
-                isEditing = false;
-                launchMenu.deactivate();
-                levelSelectionMenu.activate();
-            } else if (action == 2) {
-                isEditing = true;
-                launchMenu.deactivate();
-                editorStartMenu.activate();
-            }
-        } else if (editorStartMenu.isActive()) {
-            int action = editorStartMenu.updateInput();
-            if (action == EditorStartMenu.RESULT_NEW_MAP) {
-                editorStartMenu.deactivate();
-                createMap.activate(null);
-            } else if (action == EditorStartMenu.RESULT_MODIFY_MAP) {
-                editorStartMenu.deactivate();
-                levelSelectionMenu.activate();
-            } else if (action == EditorStartMenu.RESULT_BACK) {
-                editorStartMenu.deactivate();
-                launchMenu.activate();
-            }
-        } else if (levelSelectionMenu.isActive()) {
-            int action = levelSelectionMenu.updateInput();
-            if (action == LevelSelectionMenu.RESULT_LEVEL_SELECTED) {
-                String levelPath = levelSelectionMenu.getSelectedLevelPath();
-                levelSelectionMenu.deactivate();
-                
-                if (isEditing) {
-                    createMap.activate(levelPath);
-                } else {
-                    initGame(levelPath);
-                }
-            } else if (action == LevelSelectionMenu.RESULT_BACK_TO_MAIN) {
-                levelSelectionMenu.deactivate();
-                if (isEditing) {
-                    editorStartMenu.activate();
-                } else {
-                    launchMenu.activate();
-                }
-            }
-        } else if (createMap.isActive()) {
-            int result = createMap.updateInput();
-            if (result == 1) goToLaunchMenu();
-            else if (result == 2) Gdx.app.exit();
-        } else {
-            if (pauseMenu.isPaused()) {
-                int action = pauseMenu.updateInput();
-                if (action == 2) Gdx.app.exit();
-                else if (action == 3) goToLaunchMenu();
-            }
-
-            if (!pauseMenu.isPaused() && !gameOver) {
-                updateGame(delta);
-                boolean killed = (carte != null && joueur != null) ? carte.updateAutomates(delta, joueur) : false;
-                if (killed) {
-                    gameOver = true;
-                    gameOverMessage = "Vous vous etes fait tuer";
-                    if (gameOverMenu != null) gameOverMenu.activate(gameOverMessage);
-                }
-            }
-
-            updateCamera();
-
-            if (gameOver && gameOverMenu.isActive()) {
-                int action = gameOverMenu.updateInput();
-                if (action == 1) {
-                    if (carte != null && carte.getCurrentLevelPath() != null) {
-                        initGame(carte.getCurrentLevelPath());
-                    } else {
-                        goToLaunchMenu();
-                    }
-                }
-                else if (action == 2) Gdx.app.exit();
-                else if (action == 3) goToLaunchMenu();
-            }
-        }
-
         Gdx.gl.glClearColor(0.1f, 0.1f, 0.2f, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
+        if (!isGameBlocked()) {
+            updateGame(delta);
+        }
+        handleGlobalInput();
+
         batch.begin();
-        if (launchMenu.isActive()) {
-            launchMenu.render(batch, font);
-        } else if (editorStartMenu.isActive()) {
-            editorStartMenu.render(batch, font);
-        } else if (levelSelectionMenu.isActive()) {
-            levelSelectionMenu.render(batch, font);
-        } else if (createMap.isActive()) {
-            createMap.render(batch, font);
-        } else {
-            if (carte != null) carte.render(batch, cameraX);
-            if (joueur != null) joueur.render(batch, cameraX);
-            renderHUD();
-            if (pauseMenu != null) pauseMenu.render(batch, font);
-            if (gameOverMenu != null) gameOverMenu.render(batch, font);
+        drawBackground(); // MÉTHODE RÉINTÉGRÉE
+        if (joueur != null) {
+            carte.render(batch, cameraX);
+            joueur.render(batch, cameraX);
+            renderHUD(); // MÉTHODE RÉINTÉGRÉE
         }
         batch.end();
-    }
 
-    private void handleTogglePause() {
-        if (launchMenu.isActive()) return;
-        if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE) && !gameOver) {
-            pauseMenu.toggle();
+        // Rendu des écrans UI
+        if (launchMenu.isActive()) launchMenu.render();
+        if (editorStartMenu.isActive()) editorStartMenu.render();
+        if (pauseMenu.isActive()) pauseMenu.render();
+        if (gameOverMenu.isActive()) gameOverMenu.render();
+        if (levelSelectionMenu.isActive()) levelSelectionMenu.render();
+        
+        if (createMap.isActive()) {
+            if (createMap.updateInput() == 1) goToLaunchMenu();
+            createMap.render(batch, font);
         }
     }
 
-    /**
-     * MODIFIÉ : Ajout de la détection de chute mortelle.
-     */
+    private boolean isGameBlocked() {
+        return launchMenu.isActive() || editorStartMenu.isActive() || levelSelectionMenu.isActive() ||
+               createMap.isActive() || pauseMenu.isActive() || gameOverMenu.isActive();
+    }
+
+    private void handleGlobalInput() {
+        if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE) && joueur != null) {
+            togglePause();
+        }
+    }
+
     private void updateGame(float delta) {
-        if (joueur != null && carte != null) {
-            handleTogglePause();
-            joueur.update(delta, carte);
+        joueur.update(delta, carte);
+        updateCamera();
+        if (carte.updateAutomates(delta, joueur)) triggerGameOver("Vous vous etes fait tuer !");
+        if (joueur.getX() + joueur.getWidth() >= carte.getMapWidth()) triggerGameOver("Fin de partie !");
+        if (joueur.getY() < -200) triggerGameOver("Vous etes tombe dans un gouffre !");
+    }
 
-            // Condition de victoire : atteindre la fin de la carte
-            if (joueur.getX() + joueur.getWidth() >= carte.getMapWidth()) {
-                gameOver = true;
-                gameOverMessage = "Fin de partie";
-                if (gameOverMenu != null) gameOverMenu.activate(gameOverMessage);
-            }
+    // --- MÉTHODES MANQUANTES RÉINTÉGRÉES ---
 
-            // NOUVEAU : Condition de défaite par chute
-            // Si le bas du joueur est bien en dessous de l'écran (ex: -200 pixels)
-            if (joueur.getY() + joueur.getHeight() < -200) {
-                gameOver = true;
-                gameOverMessage = "Vous etes tombe dans un gouffre";
-                if (gameOverMenu != null) gameOverMenu.activate(gameOverMessage);
-            }
+    private void drawBackground() {
+        float screenW = Gdx.graphics.getWidth();
+        float screenH = Gdx.graphics.getHeight();
+        float destHeight = screenH + BACKGROUND_EXTRA_HEIGHT;
+        float destWidth = (background.getWidth() / (float)background.getHeight()) * destHeight;
+        float parallaxFactor = 0.5f;
+        float backgroundCamX = (carte != null && joueur != null) ? cameraX * parallaxFactor : 0;
+        float mapWidth = (carte != null && joueur != null) ? carte.getMapWidth() : screenW;
+
+        for (float x = 0; x < mapWidth + destWidth; x += destWidth) {
+            batch.draw(background, x - backgroundCamX, 0, destWidth, destHeight);
         }
     }
 
@@ -229,20 +218,30 @@ public class Main extends ApplicationAdapter {
 
     private void renderHUD() {
         if (joueur == null) return;
+        font.setColor(Color.WHITE);
         font.draw(batch, "Temps : " + (int)(joueur.getElapsedTime()) + "s", 20, Gdx.graphics.getHeight() - 20);
     }
 
     @Override
     public void dispose() {
         batch.dispose();
+        shapeRenderer.dispose();
         font.dispose();
+        uiSkin.dispose();
+
+        background.dispose();
+        blockTop.dispose();
+        blockBottom.dispose();
+        creeperTex.dispose();
+        picsTex.dispose();
+
         if (joueur != null) joueur.dispose();
-        if (carte != null) carte.dispose();
-        if (pauseMenu != null) pauseMenu.dispose();
-        if (gameOverMenu != null) gameOverMenu.dispose();
-        if (launchMenu != null) launchMenu.dispose();
-        if (levelSelectionMenu != null) levelSelectionMenu.dispose();
-        if (editorStartMenu != null) editorStartMenu.dispose();
-        if (createMap != null) createMap.dispose();
+        carte.dispose();
+        launchMenu.dispose();
+        editorStartMenu.dispose();
+        pauseMenu.dispose();
+        gameOverMenu.dispose();
+        levelSelectionMenu.dispose();
+        createMap.dispose();
     }
 }
