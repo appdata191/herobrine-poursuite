@@ -59,14 +59,16 @@ public class Main extends ApplicationAdapter {
         editorStartMenu = new EditorStartMenuScreen(uiSkin, this);
         pauseMenu = new PauseMenuOverlay(uiSkin, this);
         gameOverMenu = new GameOverMenuOverlay(uiSkin, this);
-        levelSelectionMenu = new LevelSelectionMenuScreen(uiSkin, this);
-
+        levelSelectionMenu = new LevelSelectionMenuScreen(uiSkin, this, LevelSelectionMenuScreen.SelectionMode.PLAY);
         launchMenu.activate();
     }
 
     // --- API Publique pour les Menus ---
     public void startLevelSelection(boolean forEditing) {
         this.isEditing = forEditing;
+        if (isEditing) {
+            levelSelectionMenu = new LevelSelectionMenuScreen(uiSkin, this, LevelSelectionMenuScreen.SelectionMode.EDIT);
+        }
         levelSelectionMenu.activate();
     }
 
@@ -187,8 +189,8 @@ public class Main extends ApplicationAdapter {
         joueur.update(delta, carte);
         updateCamera();
         if (carte.updateAutomates(delta, joueur)) triggerGameOver("Vous vous etes fait tuer !");
-        if (joueur.getX() + joueur.getWidth() >= carte.getMapWidth()) triggerGameOver("Fin de partie !");
-        if (joueur.getY() < -200) triggerGameOver("Vous etes tombe dans un gouffre !");
+        if (joueur.getX() + joueur.getWidth() >= carte.getMapWidth()) triggerGameOver("Vous avez gagné !");
+        if (joueur.getY() < 1) triggerGameOver("Vous etes tombe dans un gouffre !");
     }
 
     // --- MÉTHODES MANQUANTES RÉINTÉGRÉES ---

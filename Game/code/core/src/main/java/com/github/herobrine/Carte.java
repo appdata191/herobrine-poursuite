@@ -38,16 +38,16 @@ public class Carte {
      */
     public float getSurfaceYAt(int gridX) {
         // On parcourt la colonne de haut en bas (en partant du sommet de la carte)
-        for (int gy = MAP_HEIGHT_TILES - 1; gy >= 1; gy--) {
-            boolean isCurrentBlockEmpty = (map[gridX][gy] == 0);
-            boolean isBlockBelowSolid = (map[gridX][gy - 1] != 0);
+        for (int gy = MAP_HEIGHT_TILES - 2; gy >= 0; gy--) {
+            boolean isBlockBelowSolid = (map[gridX+1][gy-1] != 0);
 
             // Si la case actuelle est vide ET que la case juste en dessous est solide,
             // alors nous avons trouvé la surface la plus haute sur laquelle le joueur peut se tenir.
-            if (isCurrentBlockEmpty && isBlockBelowSolid) {
+            if ( isBlockBelowSolid) {
                 // La position Y du joueur est le haut du bloc solide d'en dessous, soit gy * TILE.
-                return (gy + 1) * TILE;
+                return (gy) * TILE;
             }
+            
         }
 
         // Cas de secours : si aucune surface n'est trouvée (par exemple, une colonne entièrement vide),

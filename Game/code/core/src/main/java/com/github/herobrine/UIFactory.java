@@ -8,6 +8,7 @@ import com.badlogic.gdx.graphics.g2d.NinePatch;
 import com.badlogic.gdx.scenes.scene2d.ui.ScrollPane.ScrollPaneStyle;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton.TextButtonStyle;
+import com.badlogic.gdx.scenes.scene2d.ui.Window.WindowStyle; // NOUVEL IMPORT
 import com.badlogic.gdx.scenes.scene2d.utils.Drawable;
 import com.badlogic.gdx.scenes.scene2d.utils.NinePatchDrawable;
 
@@ -25,17 +26,22 @@ public class UIFactory {
         buttonStyle.down = createNinePatchDrawable(Color.LIGHT_GRAY, Color.GOLD, 8);
         skin.add("default", buttonStyle);
 
-        // --- 2. CORRECTION : Style pour le ScrollPane avec barre noire ---
+        // --- 2. Style pour le ScrollPane ---
         ScrollPaneStyle scrollPaneStyle = new ScrollPaneStyle();
-        // Le fond de la barre de défilement (track)
-        scrollPaneStyle.vScroll = createDrawable(new Color(0.1f, 0.1f, 0.1f, 1f)); // Gris très foncé
-        // Le curseur de la barre de défilement (knob)
-        scrollPaneStyle.vScrollKnob = createDrawable(Color.BLACK); // Noir
+        scrollPaneStyle.vScroll = createDrawable(new Color(0.1f, 0.1f, 0.1f, 1f));
+        scrollPaneStyle.vScrollKnob = createDrawable(Color.BLACK);
         skin.add("default", scrollPaneStyle);
 
         // --- 3. Style pour le cadre de la liste ---
-        // Ce Drawable a un fond blanc et une bordure dorée. Il sera utilisé pour le cadre.
         skin.add("list-frame", createNinePatchDrawable(Color.WHITE, Color.GOLD, 12), Drawable.class);
+
+        // --- 4. NOUVEAU : Style pour la fenêtre de dialogue ---
+        WindowStyle dialogStyle = new WindowStyle();
+        dialogStyle.titleFont = skin.getFont("default-font");
+        dialogStyle.titleFontColor = Color.BLACK;
+        // On réutilise le même fond que la liste pour un look cohérent
+        dialogStyle.background = skin.getDrawable("list-frame");
+        skin.add("default", dialogStyle);
 
         return skin;
     }
