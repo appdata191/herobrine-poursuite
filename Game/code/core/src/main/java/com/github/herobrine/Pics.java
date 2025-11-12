@@ -9,7 +9,7 @@ public class Pics extends AutomateMortel {
 
     public Pics(int gridX, int gridY, int tile) {
         super(gridX * tile, (gridY + 1) * tile, 60f, 20f);
-        this.texture = new Texture("Pics.png");
+        this.texture = new Texture("Picss.png");
     }
 
     @Override

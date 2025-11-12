@@ -14,7 +14,11 @@ GIMP retouche image/Fond_simple.png
 GIMP retouche image/Fond_simple.xcf
 GIMP retouche image/Pics.png
 GIMP retouche image/Pics.xcf
+GIMP retouche image/Picss.png
+GIMP retouche image/Picss.xcf
+GIMP retouche image/ronce.jpeg
 Pics.png
+Picss.png
 assets/levels/gouffre.txt
 assets/levels/ok.txt
 creeper.png

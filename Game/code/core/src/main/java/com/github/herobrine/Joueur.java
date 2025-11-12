@@ -18,11 +18,10 @@ public class Joueur {
 
     private float elapsedTime = 0f;
 
-    // MODIFIÉ : Définition d'une hitbox composite
-    private final float playerHeight = 120f;
-    private final float bodyWidth = 60f; // Largeur totale pour le rendu et les collisions latérales
-    private final float feetWidth = 40f; // Largeur réduite pour les pieds
-    // Calcul de l'offset pour centrer les pieds
+    // Hitbox composite
+    private final float playerHeight = 118f;
+    private final float bodyWidth = 60f;
+    private final float feetWidth = 40f;
     private final float feetOffsetX = (bodyWidth - feetWidth) / 2;
 
     public Joueur(float startX, float startY) {
@@ -34,13 +33,10 @@ public class Joueur {
         texture = new Texture("pngegg.png");
     }
 
-    /**
-     * MODIFIÉ : La physique de collision utilise maintenant une hitbox composite.
-     */
     public void update(float delta, Carte carte) {
         elapsedTime += delta;
 
-        // --- 1. Mouvement Horizontal (utilise la largeur du corps : 60px) ---
+        // --- 1. Mouvement Horizontal ---
         float dx = 0f;
         if (Gdx.input.isKeyPressed(Input.Keys.D)) dx += speed * delta;
         if (Gdx.input.isKeyPressed(Input.Keys.A)) dx -= speed * delta;
@@ -52,14 +48,14 @@ public class Joueur {
         int bottomTile = (int) Math.floor(y / tile);
         int topTile = (int) Math.floor((y + playerHeight - 1) / tile);
 
-        if (dx > 0) { // Collision à droite
+        if (dx > 0) {
             for (int gy = bottomTile; gy <= topTile; gy++) {
                 if (carte.isAnyBlockAt(bodyRightTile, gy)) {
                     x = bodyRightTile * tile - bodyWidth;
                     break;
                 }
             }
-        } else if (dx < 0) { // Collision à gauche
+        } else if (dx < 0) {
             for (int gy = bottomTile; gy <= topTile; gy++) {
                 if (carte.isAnyBlockAt(bodyLeftTile, gy)) {
                     x = (bodyLeftTile + 1) * tile;
@@ -68,13 +64,28 @@ public class Joueur {
             }
         }
 
-        // --- 2. Mouvement Vertical (utilise la largeur des pieds : 40px) ---
+        // --- 2. Mouvement Vertical ---
+        
+        // Déclenchement du saut (inchangé)
         if ((Gdx.input.isKeyJustPressed(Input.Keys.W) || Gdx.input.isKeyJustPressed(Input.Keys.SPACE)) && onGround) {
             vy = JUMP_IMPULSE;
             onGround = false;
         }
 
+        // Application de la gravité (inchangé)
         vy += GRAVITY * delta;
+
+        // NOUVEAU : GESTION DU SAUT DE HAUTEUR VARIABLE
+        // Si le joueur relâche la touche de saut alors qu'il est encore en train de monter...
+        boolean jumpKeyReleased = !Gdx.input.isKeyPressed(Input.Keys.W) && !Gdx.input.isKeyPressed(Input.Keys.SPACE);
+        if (jumpKeyReleased && vy > 0) {
+            // ...on "coupe" son ascension en réduisant sa vitesse verticale.
+            // Multiplier par une valeur inférieure à 1 (ex: 0.5f) donne un effet plus doux.
+            // Mettre à 0 est plus brutal. Essayez différentes valeurs !
+            vy *= 0.95f;
+        }
+
+        // Application du mouvement vertical (inchangé)
         y += vy * delta;
 
         // Recalcul des tuiles pour les pieds
@@ -115,7 +126,6 @@ public class Joueur {
     }
 
     public void render(SpriteBatch batch, float cameraX) {
-        // Le rendu utilise toujours la largeur totale pour afficher le sprite entier
         batch.draw(texture, x - cameraX, y, bodyWidth, playerHeight);
     }
 
@@ -123,15 +133,13 @@ public class Joueur {
         if (texture != null) texture.dispose();
     }
 
-    // Getters mis à jour pour exposer les nouvelles dimensions
+    // Getters (inchangés)
     public float getVy() { return vy; }
     public float getY() { return y; }
     public float getX() { return x; }
-    public float getWidth() { return bodyWidth; } // Garde le nom pour la compatibilité, mais représente le corps
+    public float getWidth() { return bodyWidth; }
     public float getHeight() { return playerHeight; }
     public float getElapsedTime() { return elapsedTime; }
-
-    // NOUVEAU : Getters spécifiques pour la hitbox composite
     public float getBodyWidth() { return bodyWidth; }
     public float getFeetWidth() { return feetWidth; }
     public float getFeetOffsetX() { return feetOffsetX; }

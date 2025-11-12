@@ -48,7 +48,7 @@ public class Main extends ApplicationAdapter {
         blockTop = new Texture("Bloc du dessus.png");
         blockBottom = new Texture("Bloc du dessous.png");
         creeperTex = new Texture("creeper.png");
-        picsTex = new Texture("Pics.png");
+        picsTex = new Texture("Picss.png");
 
         uiSkin = UIFactory.createSkin(font);
         carte = new Carte(blockTop, blockBottom);
@@ -68,6 +68,8 @@ public class Main extends ApplicationAdapter {
         this.isEditing = forEditing;
         if (isEditing) {
             levelSelectionMenu = new LevelSelectionMenuScreen(uiSkin, this, LevelSelectionMenuScreen.SelectionMode.EDIT);
+        } else {
+            levelSelectionMenu = new LevelSelectionMenuScreen(uiSkin, this, LevelSelectionMenuScreen.SelectionMode.PLAY);
         }
         levelSelectionMenu.activate();
     }

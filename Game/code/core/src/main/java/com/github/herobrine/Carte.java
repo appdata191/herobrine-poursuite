@@ -45,7 +45,7 @@ public class Carte {
             // alors nous avons trouvé la surface la plus haute sur laquelle le joueur peut se tenir.
             if ( isBlockBelowSolid) {
                 // La position Y du joueur est le haut du bloc solide d'en dessous, soit gy * TILE.
-                return (gy) * TILE;
+                return (gy+2) * TILE;
             }
             
         }
