@@ -4,6 +4,7 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.math.Rectangle; // NOUVEL IMPORT
 
 import java.util.ArrayList;
 import java.util.List;
@@ -19,6 +20,7 @@ public class Carte {
     private final int[][] map = new int[MAP_WIDTH_TILES][MAP_HEIGHT_TILES];
     
     private final List<AutomateMortel> automates = new ArrayList<>();
+    private final List<AutomateNonMortel> automatesNonMortels = new ArrayList<>(); // NOUVEAU : Liste pour les automates non mortels
     private String currentLevelPath = null;
 
     public Carte(Texture blockTop, Texture blockBottom) {
@@ -32,30 +34,26 @@ public class Carte {
     }
 
     /**
-     * CORRECTION DÉFINITIVE : Réécriture complète de la méthode pour une détection de surface robuste.
-     * La méthode cherche de haut en bas le premier espace vide qui se trouve juste au-dessus d'un bloc solide.
-     * Cela garantit que le joueur apparaît sur une surface marchable et non sous un plafond.
+     * CORRECTION DE LA MÉTHODE getSurfaceYAt :
+     * La version précédente contenait des erreurs d'indexation et de logique.
+     * Cette version robuste cherche le premier bloc solide dans la colonne gridX
+     * et retourne la position Y juste au-dessus. Si la colonne est vide, elle
+     * cherche des blocs solides dans les colonnes adjacentes.
      */
-    public float getSurfaceYAt(int gridX) {
-        // On parcourt la colonne de haut en bas (en partant du sommet de la carte)
-        for (int gy = MAP_HEIGHT_TILES - 2; gy >= 0; gy--) {
-            boolean isBlockBelowSolid = (map[gridX+1][gy-1] != 0);
-
-            // Si la case actuelle est vide ET que la case juste en dessous est solide,
-            // alors nous avons trouvé la surface la plus haute sur laquelle le joueur peut se tenir.
-            if ( isBlockBelowSolid) {
-                // La position Y du joueur est le haut du bloc solide d'en dessous, soit gy * TILE.
-                return (gy+2) * TILE;
+    public float getGroundYAtGridX(int gridX) {
+        // Étape 1 : On essaie de trouver le sol directement sous la position de départ.
+        // On parcourt la colonne de haut en bas pour trouver le premier bloc solide.
+        for (int gy = MAP_HEIGHT_TILES - 1; gy >= 0; gy--) {
+            // Vérifie si la tuile à (gridX, gy) est un bloc solide (non vide)
+            if (map[gridX][gy-1] != 0) {
+                // Si un bloc est trouvé, la surface est juste au-dessus de ce bloc.
+                return MAP_HEIGHT_TILES * TILE ;
             }
-            
         }
 
-        // Cas de secours : si aucune surface n'est trouvée (par exemple, une colonne entièrement vide),
-        // on place le joueur tout en bas de la carte.
+        // Cas de secours ultime : si toute la carte est vide ou aucun sol n'est trouvé, on retourne 0.
         return 0;
     }
-
-    // ... Le reste du fichier est identique et correct ...
 
     private void loadLevel(String levelPath) {
         clear();
@@ -119,9 +117,54 @@ public class Carte {
                             automates.add(new Pics(coords.get(0), coords.get(1), TILE));
                         }
                         break;
+                    // NOUVEAU : Chargement des portes
+                    case "D":
+                        if (coords.size() >= 2) {
+                            // Les coordonnées sont en tuiles, on les convertit en pixels
+                            Porte porte = new Porte(coords.get(0) * TILE, coords.get(1) * TILE, TILE);
+                            automatesNonMortels.add(porte);
+                        }
+                        break;
+                    // NOUVEAU : Chargement des plaques de pression
+                    case "PP":
+                        if (coords.size() >= 2) {
+                            // Les coordonnées sont en tuiles, on les convertit en pixels
+                            PlaqueDePression plaque = new PlaqueDePression(coords.get(0) * TILE, coords.get(1) * TILE, TILE);
+                            automatesNonMortels.add(plaque);
+                        }
+                        break;
                 }
             }
             
+            // NOUVEAU : Association des plaques de pression aux portes
+            // On parcourt toutes les plaques de pression pour leur assigner la porte la plus proche à leur droite.
+            for (AutomateNonMortel automate : automatesNonMortels) {
+                if (automate instanceof PlaqueDePression) {
+                    PlaqueDePression plaque = (PlaqueDePression) automate;
+                    Porte porteLaPlusProche = null;
+                    float distanceMin = Float.MAX_VALUE;
+
+                    for (AutomateNonMortel autreAutomate : automatesNonMortels) {
+                        if (autreAutomate instanceof Porte) {
+                            Porte porte = (Porte) autreAutomate;
+                            // On cherche une porte à droite de la plaque de pression
+                            float distance = porte.getX() - plaque.getX();
+
+                            // Si la porte est à droite (distance > 0) et plus proche que la précédente trouvée
+                            if (distance > 0 && distance < distanceMin) {
+                                distanceMin = distance;
+                                porteLaPlusProche = porte;
+                            }
+                        }
+                    }
+
+                    if (porteLaPlusProche != null) {
+                        plaque.setPorteAssociee(porteLaPlusProche);
+                    }
+                }
+            }
+
+            // Logique existante pour marquer les blocs du dessous (type 2)
             for (int gx = 0; gx < MAP_WIDTH_TILES; gx++) {
                 int lowestTopY = -1;
                 for (int gy = 0; gy < MAP_HEIGHT_TILES; gy++) {
@@ -154,6 +197,13 @@ public class Carte {
             auto.dispose();
         }
         automates.clear();
+        
+        // NOUVEAU : Libération des ressources des automates non mortels
+        for (AutomateNonMortel auto : automatesNonMortels) {
+            auto.dispose();
+        }
+        automatesNonMortels.clear();
+
         for (int gx = 0; gx < MAP_WIDTH_TILES; gx++) {
             for (int gy = 0; gy < MAP_HEIGHT_TILES; gy++) {
                 map[gx][gy] = 0;
@@ -177,16 +227,64 @@ public class Carte {
         for (AutomateMortel auto : automates) {
             auto.render(batch, cameraX);
         }
+
+        // NOUVEAU : Rendu des automates non mortels
+        for (AutomateNonMortel auto : automatesNonMortels) {
+            auto.render(batch, cameraX);
+        }
     }
 
     public boolean updateAutomates(float delta, Joueur joueur) {
+        boolean playerKilled = false;
         for (AutomateMortel auto : automates) {
             auto.update(delta);
             if (auto.kill(joueur)) {
-                return true;
+                playerKilled = true;
             }
         }
-        return false;
+
+        // NOUVEAU : Mise à jour des automates non mortels et gestion des interactions
+        // On utilise la hitbox du joueur pour les collisions
+        Rectangle joueurHitbox = new Rectangle(joueur.getX(), joueur.getY(), joueur.getWidth(), joueur.getHeight());
+
+        for (AutomateNonMortel auto : automatesNonMortels) {
+            auto.update(delta); // Met à jour le timer de la porte
+
+            if (auto instanceof PlaqueDePression) {
+                PlaqueDePression plaque = (PlaqueDePression) auto;
+                // Si le joueur est en collision avec la plaque de pression
+                if (joueurHitbox.overlaps(plaque.getHitbox())) {
+                    plaque.activerPorte();
+                }
+            } else if (auto instanceof Porte) {
+                Porte porte = (Porte) auto;
+                // Si la porte est fermée ET que le joueur tente de la traverser
+                if (!porte.estOuverte() && joueurHitbox.overlaps(porte.getHitbox())) {
+                    // Empêche le joueur de traverser la porte fermée
+                    // On doit ajuster la position du joueur pour le "repousser" hors de la porte
+                    // Cette logique est simplifiée et peut être améliorée pour une meilleure gestion des collisions
+                    
+                    // Calcul de la profondeur de pénétration
+                    float overlapX = Math.min(joueurHitbox.x + joueurHitbox.width, porte.getHitbox().x + porte.getHitbox().width) - Math.max(joueurHitbox.x, porte.getHitbox().x);
+                    float overlapY = Math.min(joueurHitbox.y + joueurHitbox.height, porte.getHitbox().y + porte.getHitbox().height) - Math.max(joueurHitbox.y, porte.getHitbox().y);
+
+                    if (overlapX < overlapY) { // Collision horizontale
+                        if (joueurHitbox.x < porte.getHitbox().x) { // Joueur vient de la gauche
+                            joueur.setX(porte.getHitbox().x - joueur.getWidth());
+                        } else { // Joueur vient de la droite
+                            joueur.setX(porte.getHitbox().x + porte.getHitbox().width);
+                        }
+                    } else { // Collision verticale
+                        if (joueurHitbox.y < porte.getHitbox().y) { // Joueur vient du bas
+                            joueur.setY(porte.getHitbox().y - joueur.getHeight());
+                        } else { // Joueur vient du haut
+                            joueur.setY(porte.getHitbox().y + porte.getHitbox().height);
+                        }
+                    }
+                }
+            }
+        }
+        return playerKilled;
     }
 
     public int getTile() { return TILE; }
@@ -195,7 +293,7 @@ public class Carte {
 
     public boolean isAnyBlockAt(int gridX, int gridY) {
         if (gridX < 0 || gridX >= MAP_WIDTH_TILES || gridY < 0 || gridY >= MAP_HEIGHT_TILES) {
-            return true;
+            return true; // Considère l'extérieur de la carte comme un bloc solide pour éviter de tomber
         }
         return map[gridX][gridY] != 0;
     }

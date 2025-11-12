@@ -18,7 +18,7 @@ public class Main extends ApplicationAdapter {
     private Skin uiSkin;
 
     // Textures
-    private Texture background, blockTop, blockBottom, creeperTex, picsTex;
+    private Texture background, blockTop, blockBottom, creeperTex, picsTex, doorTex, pressurePlateTex;;
 
     // Objets du jeu
     private Carte carte;
@@ -49,10 +49,14 @@ public class Main extends ApplicationAdapter {
         blockBottom = new Texture("Bloc du dessous.png");
         creeperTex = new Texture("creeper.png");
         picsTex = new Texture("Picss.png");
+        doorTex = new Texture("Porte fermee.png");
+        pressurePlateTex = new Texture("pressure_plate.png");
 
         uiSkin = UIFactory.createSkin(font);
         carte = new Carte(blockTop, blockBottom);
-        createMap = new CreateMap(BACKGROUND_EXTRA_HEIGHT, background, blockTop, blockBottom, creeperTex, picsTex);
+        createMap = new CreateMap(BACKGROUND_EXTRA_HEIGHT, background, blockTop, blockBottom, creeperTex, picsTex, doorTex, pressurePlateTex);
+    
+
 
         // Initialisation des écrans de menu
         launchMenu = new GameLaunchMenuScreen(uiSkin, this);
@@ -119,7 +123,8 @@ public class Main extends ApplicationAdapter {
     private void initGame(String levelPath) {
         carte.create(levelPath);
         if (joueur != null) joueur.dispose();
-        joueur = new Joueur(carte.getTile() * 5, carte.getSurfaceYAt(5));
+        
+        joueur = new Joueur(0f, 1080f);
         joueur.create();
         cameraX = 0f;
         if (pauseMenu.isActive()) pauseMenu.deactivate();
@@ -247,5 +252,8 @@ public class Main extends ApplicationAdapter {
         gameOverMenu.dispose();
         levelSelectionMenu.dispose();
         createMap.dispose();
+
+        if (doorTex != null) doorTex.dispose();
+        if (pressurePlateTex != null) pressurePlateTex.dispose();
     }
 }

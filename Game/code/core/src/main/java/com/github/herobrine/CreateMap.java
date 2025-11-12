@@ -26,6 +26,9 @@ public class CreateMap {
     private final Texture blockBottom;
     private final Texture creeperTex;
     private final Texture picsTex;
+    // NOUVEAU : Textures pour les portes et plaques de pression
+    private final Texture doorTex;
+    private final Texture pressurePlateTex;
     
     private Texture scrollbarBgTex;
     private Texture scrollbarHandleTex;
@@ -44,8 +47,9 @@ public class CreateMap {
     private enum EditorMode { SELECTION, PLACING }
     private EditorMode currentMode = EditorMode.SELECTION;
 
-    private enum Tool { TOP, CREEPER, PICS }
-    private final Tool[] tools = new Tool[]{ Tool.TOP, Tool.CREEPER, Tool.PICS };
+    // NOUVEAU : Ajout des outils DOOR et PRESSURE_PLATE
+    private enum Tool { TOP, CREEPER, PICS, DOOR, PRESSURE_PLATE }
+    private final Tool[] tools = new Tool[]{ Tool.TOP, Tool.CREEPER, Tool.PICS, Tool.DOOR, Tool.PRESSURE_PLATE };
     private int selectionIndex = 0;
 
     private Integer hoverGX = null, hoverGY = null;
@@ -82,20 +86,26 @@ public class CreateMap {
     private final List<int[]> topSegments = new ArrayList<>();
     private final List<EditorCreeper> creepers = new ArrayList<>();
     private final List<int[]> pics = new ArrayList<>();
+    // NOUVEAU : Listes pour stocker les portes et plaques de pression
+    private final List<int[]> doors = new ArrayList<>();
+    private final List<int[]> pressurePlates = new ArrayList<>();
 
     private final SaveMenu saveMenu;
     private final Rectangle scrollbarHandle = new Rectangle();
     private boolean isDraggingScrollbar = false;
     private final List<Rectangle> toolSlots = new ArrayList<>();
 
-    // CORRIGÉ : Le constructeur reçoit les textures en dépendances
-    public CreateMap(float extraHeight, Texture background, Texture blockTop, Texture blockBottom, Texture creeperTex, Texture picsTex) {
+    // CORRIGÉ : Le constructeur reçoit les textures en dépendances, y compris les nouvelles
+    public CreateMap(float extraHeight, Texture background, Texture blockTop, Texture blockBottom, Texture creeperTex, Texture picsTex, Texture doorTex, Texture pressurePlateTex) {
         this.EXTRA_HEIGHT = extraHeight;
         this.background = background;
         this.blockTop = blockTop;
         this.blockBottom = blockBottom;
         this.creeperTex = creeperTex;
         this.picsTex = picsTex;
+        // NOUVEAU : Initialisation des nouvelles textures
+        this.doorTex = doorTex;
+        this.pressurePlateTex = pressurePlateTex;
         
         saveMenu = new SaveMenu(EXTRA_HEIGHT);
         shapeRenderer = new ShapeRenderer();
@@ -113,7 +123,6 @@ public class CreateMap {
         pm.dispose();
     }
 
-    // ... (le reste du fichier est identique à la version précédente)
     public void activate(String levelPathToLoad) {
         active = true;
         cameraX = 0;
@@ -122,6 +131,9 @@ public class CreateMap {
         topSegments.clear();
         creepers.clear();
         pics.clear();
+        // NOUVEAU : Vider les listes des nouveaux objets
+        doors.clear();
+        pressurePlates.clear();
 
         if (levelPathToLoad != null) {
             this.loadedLevelName = new FileHandle(levelPathToLoad).nameWithoutExtension();
@@ -191,6 +203,17 @@ public class CreateMap {
                     case "P":
                         if (coords.size() >= 2) {
                             pics.add(new int[]{coords.get(0), coords.get(1)});
+                        }
+                        break;
+                    // NOUVEAU : Chargement des portes et plaques de pression
+                    case "D":
+                        if (coords.size() >= 2) {
+                            doors.add(new int[]{coords.get(0), coords.get(1)});
+                        }
+                        break;
+                    case "PP":
+                        if (coords.size() >= 2) {
+                            pressurePlates.add(new int[]{coords.get(0), coords.get(1)});
                         }
                         break;
                 }
@@ -292,7 +315,8 @@ public class CreateMap {
     }
 
     private void handleToolShortcuts() {
-        int[] keys = {Input.Keys.NUM_1, Input.Keys.NUM_2, Input.Keys.NUM_3};
+        // NOUVEAU : Ajout des touches 4 et 5
+        int[] keys = {Input.Keys.NUM_1, Input.Keys.NUM_2, Input.Keys.NUM_3, Input.Keys.NUM_4, Input.Keys.NUM_5};
         for (int i = 0; i < keys.length && i < tools.length; i++) {
             if (Gdx.input.isKeyJustPressed(keys[i])) {
                 selectionIndex = i;
@@ -304,6 +328,20 @@ public class CreateMap {
     }
 
     private boolean pickToolFromMap(int gx, int gy) {
+        // NOUVEAU : Logique de pipette pour les portes et plaques
+        for (int[] d : doors) {
+            if (d[0] == gx && (gy >= d[1] && gy < d[1] + 4)) { // La porte fait 4 tuiles de haut
+                selectionIndex = 3; // Index de l'outil DOOR
+                return true;
+            }
+        }
+        for (int[] pp : pressurePlates) {
+            if (pp[0] == gx && pp[1] == gy) {
+                selectionIndex = 4; // Index de l'outil PRESSURE_PLATE
+                return true;
+            }
+        }
+
         for (EditorCreeper c : creepers) {
             int creeperTileX = (int)(c.currentX / TILE);
             int creeperBaseY = c.y;
@@ -335,6 +373,7 @@ public class CreateMap {
 
     private void handlePlacingClick() {
         Tool currentTool = tools[selectionIndex];
+        // NOUVEAU : Les portes et plaques sont des outils à clic simple
         if (currentTool == Tool.TOP || currentTool == Tool.CREEPER) {
             if (anchorGX == null) {
                 anchorGX = hoverGX;
@@ -352,6 +391,7 @@ public class CreateMap {
                 resetPlacementState();
             }
         } else {
+            // PICS, DOOR, et PRESSURE_PLATE utilisent cette logique
             placeItem(hoverGX, hoverGY);
         }
     }
@@ -360,10 +400,32 @@ public class CreateMap {
         Tool currentTool = tools[selectionIndex];
         if (currentTool == Tool.PICS) {
             pics.add(new int[]{gx, gy});
+        } 
+        // NOUVEAU : Logique de placement pour porte et plaque
+        else if (currentTool == Tool.DOOR) {
+            doors.add(new int[]{gx, gy});
+        } else if (currentTool == Tool.PRESSURE_PLATE) {
+            pressurePlates.add(new int[]{gx, gy});
         }
     }
 
     private void deleteItem(int gx, int gy) {
+        // NOUVEAU : Logique de suppression pour portes et plaques
+        for (int i = doors.size() - 1; i >= 0; i--) {
+            int[] d = doors.get(i);
+            if (d[0] == gx && (gy >= d[1] && gy < d[1] + 4)) { // La porte fait 4 tuiles de haut
+                doors.remove(i);
+                return;
+            }
+        }
+        for (int i = pressurePlates.size() - 1; i >= 0; i--) {
+            int[] pp = pressurePlates.get(i);
+            if (pp[0] == gx && pp[1] == gy) {
+                pressurePlates.remove(i);
+                return;
+            }
+        }
+
         for (int i = creepers.size() - 1; i >= 0; i--) {
             EditorCreeper c = creepers.get(i);
             int creeperTileX = (int)(c.currentX / TILE);
@@ -518,6 +580,14 @@ public class CreateMap {
             batch.draw(picsTex, x - cameraX, y, 60f, 20f);
         }
 
+        // NOUVEAU : Rendu des portes et plaques de pression
+        for (int[] d : doors) {
+            batch.draw(doorTex, d[0] * TILE - cameraX, d[1] * TILE, TILE, TILE * 4);
+        }
+        for (int[] pp : pressurePlates) {
+            batch.draw(pressurePlateTex, pp[0] * TILE - cameraX, pp[1] * TILE, TILE, TILE);
+        }
+
         if (currentMode == EditorMode.PLACING && hoverGX != null && hoverGY != null) {
             Tool currentTool = tools[selectionIndex];
             batch.setColor(1f, 1f, 1f, 0.6f);
@@ -545,6 +615,12 @@ public class CreateMap {
                 }
             } else if (currentTool == Tool.PICS) {
                 batch.draw(picsTex, hoverGX * TILE - cameraX, hoverGY * TILE + TILE, 60f, 20f);
+            } 
+            // NOUVEAU : Rendu "fantôme" pour les portes et plaques
+            else if (currentTool == Tool.DOOR) {
+                batch.draw(doorTex, hoverGX * TILE - cameraX, hoverGY * TILE, TILE, TILE * 4);
+            } else if (currentTool == Tool.PRESSURE_PLATE) {
+                batch.draw(pressurePlateTex, hoverGX * TILE - cameraX, hoverGY * TILE, TILE, TILE);
             }
             batch.setColor(1f, 1f, 1f, 1f);
         }
@@ -583,20 +659,30 @@ public class CreateMap {
             }
 
             Texture icon = null;
+            float iconWidth = slotRect.width - 8;
+            float iconHeight = slotRect.height - 8;
             switch (tools[i]) {
                 case TOP: icon = blockTop; break;
                 case CREEPER: icon = creeperTex; break;
                 case PICS: icon = picsTex; break;
+                // NOUVEAU : Icônes pour les nouveaux outils
+                case DOOR: 
+                    icon = doorTex; 
+                    // Ajuster l'icône pour qu'elle rentre dans le slot
+                    iconWidth = (float)TILE / (TILE * 4) * (slotRect.width - 8);
+                    break;
+                case PRESSURE_PLATE: icon = pressurePlateTex; break;
             }
             if (icon != null) {
-                batch.draw(icon, slotRect.x + 4, slotRect.y + 4, slotRect.width - 8, slotRect.height - 8);
+                batch.draw(icon, slotRect.x + 4, slotRect.y + 4, iconWidth, iconHeight);
             }
         }
 
         String instruction = "Mode: " + (currentMode == EditorMode.SELECTION ? "Selection/Destruction" : "Pose");
         font.getData().setScale(0.8f);
         font.draw(batch, instruction, 20, sh - 20);
-        font.draw(batch, "LMB: Placer/Pipette   RMB: Annuler/Detruire   ESC: Menu   1-3: Outils", 20, sh - 40);
+        // NOUVEAU : Mise à jour des instructions pour les touches
+        font.draw(batch, "LMB: Placer/Pipette   RMB: Annuler/Detruire   ESC: Menu   1-5: Outils", 20, sh - 40);
         font.getData().setScale(1f);
 
         float scrollbarHeight = 20f;
@@ -614,7 +700,6 @@ public class CreateMap {
         }
     }
 
-    // CORRIGÉ : Ne dispose plus les textures partagées
     public void dispose() {
         if (saveMenu != null) saveMenu.dispose();
         if (shapeRenderer != null) shapeRenderer.dispose();
@@ -635,6 +720,13 @@ public class CreateMap {
             }
             for (int[] p : pics) {
                 sb.append("P ").append(p[0]).append(" ").append(p[1]).append("\n");
+            }
+            // NOUVEAU : Sauvegarde des portes et plaques de pression
+            for (int[] d : doors) {
+                sb.append("D ").append(d[0]).append(" ").append(d[1]).append("\n");
+            }
+            for (int[] pp : pressurePlates) {
+                sb.append("PP ").append(pp[0]).append(" ").append(pp[1]).append("\n");
             }
 
             FileHandle fh = Gdx.files.local("assets/levels/" + name + ".txt");

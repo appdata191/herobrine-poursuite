@@ -19,7 +19,7 @@ public class Joueur {
     private float elapsedTime = 0f;
 
     // Hitbox composite
-    private final float playerHeight = 118f;
+    private final float playerHeight = 120f;
     private final float bodyWidth = 60f;
     private final float feetWidth = 40f;
     private final float feetOffsetX = (bodyWidth - feetWidth) / 2;
@@ -125,6 +125,14 @@ public class Joueur {
         if (x + bodyWidth > mapW) x = mapW - bodyWidth;
     }
 
+    public void setX(float x) {
+        this.x = x;
+    }
+
+    public void setY(float y) {
+        this.y = y;
+    }
+    
     public void render(SpriteBatch batch, float cameraX) {
         batch.draw(texture, x - cameraX, y, bodyWidth, playerHeight);
     }

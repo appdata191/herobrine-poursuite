@@ -12,15 +12,28 @@ GIMP retouche image/Creeper.xcf
 GIMP retouche image/Fond_sapin.xcf
 GIMP retouche image/Fond_simple.png
 GIMP retouche image/Fond_simple.xcf
+GIMP retouche image/Gemini_Generated_Image_8yoebn8yoebn8yoe.png
+GIMP retouche image/Gemini_Generated_Image_kf0joykf0joykf0j.png
 GIMP retouche image/Pics.png
 GIMP retouche image/Pics.xcf
 GIMP retouche image/Picss.png
 GIMP retouche image/Picss.xcf
+GIMP retouche image/Porte fermee.png
+GIMP retouche image/Porte fermee.xcf
+GIMP retouche image/Porte ouverte.jpg
+GIMP retouche image/Porte ouverte.png
+GIMP retouche image/Porte ouverte.xcf
+GIMP retouche image/pressure_plate.xcf
+GIMP retouche image/pressure_plate_blackstone_polished.png
 GIMP retouche image/ronce.jpeg
+Gemini_Generated_Image_x7t33ux7t33ux7t3.png
 Pics.png
 Picss.png
+Porte fermee.png
+Porte ouverte.png
 assets/levels/gouffre.txt
 assets/levels/ok.txt
+assets/levels/testppetd.txt
 creeper.png
 herobrine.png
 levels/Fond_sapin.png
@@ -28,3 +41,4 @@ levels/level1.txt
 libgdx.png
 pngegg.png
 potence.png
+pressure_plate.png
