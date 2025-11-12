@@ -23,6 +23,13 @@ assets/levels/gouffre.txt
 assets/levels/ok.txt
 creeper.png
 herobrine.png
+hs_err_pid25395.log
+hs_err_pid38687.log
+hs_err_pid42387.log
+hs_err_pid43724.log
+hs_err_pid45109.log
+hs_err_pid52016.log
+hs_err_pid6738.log
 levels/Fond_sapin.png
 levels/level1.txt
 libgdx.png

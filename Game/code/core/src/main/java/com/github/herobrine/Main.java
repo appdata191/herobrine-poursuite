@@ -10,6 +10,10 @@ import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
+import com.github.herobrine.reseau.GameClient;
+import com.github.herobrine.reseau.GameServer;
+import com.github.herobrine.reseau.PacketString;
+import java.io.IOException;
 
 public class Main extends ApplicationAdapter {
     private SpriteBatch batch;
@@ -31,6 +35,13 @@ public class Main extends ApplicationAdapter {
     private GameOverMenuOverlay gameOverMenu;
     private LevelSelectionMenuScreen levelSelectionMenu;
     private CreateMap createMap;
+
+    // Réseau
+    private GameServer gameServer;
+    private GameClient gameClient;
+    private String remoteHost = "172.18.23.103";
+
+    private static final String DEFAULT_REMOTE_HOST = "172.18.23.103" ;
 
     // États
     private float cameraX = 0f;
@@ -185,6 +196,24 @@ public class Main extends ApplicationAdapter {
         if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE) && joueur != null) {
             togglePause();
         }
+
+        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_1)) {
+            sendNetworkMessage("Bonjour");
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_5)) {
+            hostLocalServer();
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_6)) {
+            System.out.println("Connexion au serveur " + remoteHost + "...");
+            connectToConfiguredHost();
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_7)) {
+            sendNetworkMessage("Ping réseau depuis le client");
+        }
+
+        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_8)) {
+            hostAndPlay();
+        }
     }
 
     private void updateGame(float delta) {
@@ -226,8 +255,95 @@ public class Main extends ApplicationAdapter {
         font.draw(batch, "Temps : " + (int)(joueur.getElapsedTime()) + "s", 20, Gdx.graphics.getHeight() - 20);
     }
 
+    // --- Gestion du réseau ---
+
+    public void setRemoteHost(String host) {
+        if (host != null && !host.isBlank()) {
+            remoteHost = host.trim();
+        } else {
+            remoteHost = DEFAULT_REMOTE_HOST;
+        }
+    }
+
+    public void hostLocalServer() {
+        if (gameServer != null) {
+            System.out.println("Serveur déjà lancé.");
+            return;
+        }
+        try {
+            gameServer = new GameServer();
+            System.out.println("Serveur local prêt.");
+        } catch (IOException e) {
+            System.err.println("Impossible de démarrer le serveur local.");
+            e.printStackTrace();
+        }
+    }
+
+    public void hostAndPlay() {
+        try {
+            if (gameServer == null) {
+                gameServer = new GameServer();
+                System.out.println("✅ Serveur local démarré.");
+            } else {
+                System.out.println("⚠️ Serveur déjà actif.");
+            }
+
+            if (gameClient == null || !gameClient.connected) {
+                gameClient = new GameClient("172.18.23.103");
+                System.out.println("✅ Client local connecté au serveur local.");
+            } else {
+                System.out.println("⚠️ Client déjà connecté.");
+            }
+        } catch (IOException e) {
+            System.err.println("❌ Échec du mode Host & Play.");
+            e.printStackTrace();
+        }
+    }
+
+    public void connectToConfiguredHost() {
+        startClient(remoteHost);
+    }
+
+    public void startClient(String host) {
+        if (gameClient != null && gameClient.connected) {
+            System.out.println("Client déjà connecté.");
+            return;
+        }
+        try {
+            gameClient = new GameClient(host);
+        } catch (IOException e) {
+            System.err.println("Échec de connexion au serveur " + host);
+            e.printStackTrace();
+        }
+    }
+
+    public void sendNetworkMessage(String message) {
+        if (message == null || message.isBlank()) {
+            return;
+        }
+        if (gameClient != null && gameClient.connected) {
+            gameClient.sendMessage(message);
+        } else if (gameServer != null) {
+            gameServer.broadcast(new PacketString(message));
+        } else {
+            System.out.println("Aucun client/serveur réseau actif pour envoyer : " + message);
+        }
+    }
+
+    public void stopNetwork() {
+        if (gameClient != null) {
+            gameClient.stop();
+            gameClient = null;
+        }
+        if (gameServer != null) {
+            gameServer.stop();
+            gameServer = null;
+        }
+    }
+
     @Override
     public void dispose() {
+        stopNetwork();
         batch.dispose();
         shapeRenderer.dispose();
         font.dispose();
