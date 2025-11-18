@@ -183,6 +183,7 @@ public class Carte {
         for (AutomateMortel auto : automates) {
             auto.update(delta);
             if (auto.kill(joueur)) {
+                joueur.setDead(true);
                 return true;
             }
         }

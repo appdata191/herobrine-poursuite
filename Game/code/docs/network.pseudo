@@ -21,6 +21,7 @@ class Server{
     p Server server
     ps MyServer() Throw IOException
     {
+        +tạo mảng hasmap với int id và [x,y,dead] của từng player
         create(server) #tạo server mới
         server.start()
         server.bind(Network.TCP_PORT, Network.UDP_PORT)
@@ -80,4 +81,38 @@ publc class GameClient
     }
 
     +ps void stop() # dọn dẹp, dừng 
+}
+
+
+public class PacketOrder
+{
+    public OrderArray = ["right", "left", "up", "down", "space"]
+    public int order = -1
+
+    public PacketOrder() {}
+
+    public PackketOrder(String orderStr)
+    {
+        this.order = OrderArray.indexOf(orderStr)
+    }
+}
+
+#dấu + là bảo hàm AI tự viết theo hướng dẫn trong # bên cạnh
+@override
+public void received (Connection c, Object o)
+{
+    if (+ kiểm tra nếu như o là kiểu PacketOrder)
+    {
+        +in ra thông báo server đã nhận được order
+        
+    }
+}
+
+#ps = public
+public PacketPlayer{
+    ps float x
+    ps float y
+    bool dead = false
+
+    +2 hàm khởi tạo mặc định và truyền x,y,dead
 }

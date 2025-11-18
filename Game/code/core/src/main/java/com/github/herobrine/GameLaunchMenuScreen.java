@@ -15,6 +15,7 @@ public class GameLaunchMenuScreen extends AbstractMenuScreen {
 
         // Création des boutons existants
         TextButton playButton = new TextButton("Jouer", skin);
+        TextButton multiplayerButton = new TextButton("Mode multijoueur", skin);
         TextButton editorButton = new TextButton("Editeur de carte", skin);
         
         // NOUVEAU : Création du bouton Quitter
@@ -26,6 +27,14 @@ public class GameLaunchMenuScreen extends AbstractMenuScreen {
             public void clicked(InputEvent event, float x, float y) {
                 deactivate();
                 game.startLevelSelection(false);
+            }
+        });
+
+        multiplayerButton.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                deactivate();
+                game.showMultiplayerMenu();
             }
         });
 
@@ -48,6 +57,8 @@ public class GameLaunchMenuScreen extends AbstractMenuScreen {
         // Disposition des boutons dans la table
         table.add(playButton).width(400).height(50).pad(10);
         table.row(); // Ligne suivante
+        table.add(multiplayerButton).width(400).height(50).pad(10);
+        table.row();
         table.add(editorButton).width(400).height(50).pad(10);
         table.row(); // NOUVEAU : Ligne suivante pour le nouveau bouton
         table.add(quitButton).width(400).height(50).pad(10); // Ajout du bouton Quitter

@@ -26,6 +26,11 @@ public class Network {
         Kryo kryo = endPoint.getKryo();
 
         // 🔹 Enregistrer ici toutes les classes de packets autorisées
-        kryo.register(PacketString.class);
+        kryo.register(PacketPlayer.class);
+        kryo.register(PacketDisconnect.class);
+        kryo.register(PacketLobbyConfig.class);
+        kryo.register(PacketStartGame.class);
+        kryo.register(PacketGameOver.class);
+
     }
 }
