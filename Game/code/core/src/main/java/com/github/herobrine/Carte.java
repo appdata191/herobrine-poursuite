@@ -8,6 +8,8 @@ import com.badlogic.gdx.math.Rectangle; // NOUVEL IMPORT
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.StringTokenizer;
 
 public class Carte {
@@ -21,6 +23,8 @@ public class Carte {
     
     private final List<AutomateMortel> automates = new ArrayList<>();
     private final List<AutomateNonMortel> automatesNonMortels = new ArrayList<>(); // NOUVEAU : Liste pour les automates non mortels
+    private final Map<Integer, Porte> portesParId = new HashMap<>();
+    private int prochainIdPorte = 1;
     private String currentLevelPath = null;
 
     public Carte(Texture blockTop, Texture blockBottom) {
@@ -57,6 +61,8 @@ public class Carte {
 
     private void loadLevel(String levelPath) {
         clear();
+        portesParId.clear();
+        prochainIdPorte = 1;
 
         try {
             FileHandle fh = Gdx.files.local(levelPath);
@@ -121,8 +127,10 @@ public class Carte {
                     case "D":
                         if (coords.size() >= 2) {
                             // Les coordonnées sont en tuiles, on les convertit en pixels
-                            Porte porte = new Porte(coords.get(0) * TILE, coords.get(1) * TILE, TILE);
+                            int doorId = prochainIdPorte++;
+                            Porte porte = new Porte(coords.get(0) * TILE, coords.get(1) * TILE, TILE, doorId);
                             automatesNonMortels.add(porte);
+                            portesParId.put(doorId, porte);
                         }
                         break;
                     // NOUVEAU : Chargement des plaques de pression
@@ -203,6 +211,8 @@ public class Carte {
             auto.dispose();
         }
         automatesNonMortels.clear();
+        portesParId.clear();
+        prochainIdPorte = 1;
 
         for (int gx = 0; gx < MAP_WIDTH_TILES; gx++) {
             for (int gy = 0; gy < MAP_HEIGHT_TILES; gy++) {
@@ -299,5 +309,12 @@ public class Carte {
             return true; // Considère l'extérieur de la carte comme un bloc solide pour éviter de tomber
         }
         return map[gridX][gridY] != 0;
+    }
+
+    public void applyDoorState(int doorId, boolean open) {
+        Porte porte = portesParId.get(doorId);
+        if (porte != null) {
+            porte.applyNetworkState(open);
+        }
     }
 }

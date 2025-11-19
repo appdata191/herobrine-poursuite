@@ -78,6 +78,11 @@ public class GameServer {
                     checkStartConditions();
                     return;
                 }
+
+                if (o instanceof PacketDoorState doorState) {
+                    server.sendToAllTCP(doorState);
+                    return;
+                }
             }
 
             @Override
@@ -127,19 +132,36 @@ public class GameServer {
 
     private void startGame() {
         if (gameStarted) return;
-        gameStarted = true;
-        PacketStartGame start = new PacketStartGame();
-        start.levelPath = lobbyLevelPath;
-        start.playerCount = expectedPlayers;
-        System.out.println("Démarrage de la partie sur " + start.levelPath + " pour " + start.playerCount + " joueurs.");
-        
-        server.sendToAllTCP(start);
+        broadcastStartGame(lobbyLevelPath, expectedPlayers);
     }
 
     private void resetLobby() {
         gameStarted = false;
         lobbyLevelPath = null;
         expectedPlayers = 0;
+    }
+
+    private void broadcastStartGame(String levelPath, int playerCount) {
+        if (levelPath == null || levelPath.isBlank()) {
+            System.out.println("Impossible d'envoyer un démarrage : niveau inconnu.");
+            return;
+        }
+        PacketStartGame start = new PacketStartGame();
+        start.levelPath = levelPath;
+        start.playerCount = playerCount > 0 ? playerCount : players.size();
+        System.out.println("Démarrage de la partie sur " + start.levelPath + " pour " + start.playerCount + " joueurs.");
+        server.sendToAllTCP(start);
+        gameStarted = true;
+    }
+
+    public void restartGame(String levelPath) {
+        String targetLevel = (levelPath != null && !levelPath.isBlank()) ? levelPath : lobbyLevelPath;
+        if (targetLevel == null || targetLevel.isBlank()) {
+            System.out.println("Impossible de redémarrer : aucun niveau actif.");
+            return;
+        }
+        lobbyLevelPath = targetLevel;
+        broadcastStartGame(lobbyLevelPath, expectedPlayers);
     }
     // 🔸 4. Méthode de nettoyage : arrêter le serveur proprement
     public void stop() {

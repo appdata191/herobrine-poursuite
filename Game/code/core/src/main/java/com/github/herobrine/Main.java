@@ -12,6 +12,7 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.github.herobrine.reseau.GameClient;
 import com.github.herobrine.reseau.GameServer;
+import com.github.herobrine.reseau.PacketDoorState;
 import com.github.herobrine.reseau.PacketGameOver;
 import com.github.herobrine.reseau.PacketStartGame;
 import java.io.IOException;
@@ -72,6 +73,7 @@ public class Main extends ApplicationAdapter {
 
         uiSkin = UIFactory.createSkin(font);
         carte = new Carte(blockTop, blockBottom);
+        Porte.setDoorStateNotifier(this::handleLocalDoorStateChange);
         createMap = new CreateMap(BACKGROUND_EXTRA_HEIGHT, background, blockTop, blockBottom, creeperTex, picsTex, doorTex, pressurePlateTex);
     
 
@@ -172,16 +174,27 @@ public class Main extends ApplicationAdapter {
         }
     }
     public void restartLevel() {
-        if (multiplayerSessionActive && !canCurrentPlayerRestart()) {
-            System.out.println("Seul l'hôte peut redémarrer une partie multijoueur.");
+        String currentLevel = carte.getCurrentLevelPath();
+        if (currentLevel == null) {
+            returnToLaunchMenu();
             return;
         }
-        if (carte.getCurrentLevelPath() != null) {
+
+        if (multiplayerSessionActive) {
+            if (!canCurrentPlayerRestart()) {
+                System.out.println("Seul l'hôte peut redémarrer une partie multijoueur.");
+                return;
+            }
+            // Host relance la partie via le serveur pour synchroniser tous les clients.
+            if (gameServer != null) {
+                gameServer.restartGame(currentLevel);
+            }
             gameOverMenu.deactivate();
-            initGame(carte.getCurrentLevelPath());
-        } else {
-            returnToLaunchMenu();
+            return;
         }
+
+        gameOverMenu.deactivate();
+        initGame(currentLevel);
     }
     private void triggerGameOver(String message) {
         if (gameOverMenu.isActive()) return;
@@ -283,6 +296,13 @@ public class Main extends ApplicationAdapter {
             pendingLevelPath = null;
             multiplayerWaitingScreen.deactivate();
             triggerGameOver(reason);
+        }
+
+        PacketDoorState doorPacket;
+        while ((doorPacket = gameClient.pollDoorStatePacket()) != null) {
+            if (carte != null) {
+                carte.applyDoorState(doorPacket.doorId, doorPacket.open);
+            }
         }
     }
 
@@ -478,6 +498,12 @@ public class Main extends ApplicationAdapter {
     private void refreshRestartButtonState() {
         if (gameOverMenu != null) {
             gameOverMenu.setRestartButtonVisible(canCurrentPlayerRestart());
+        }
+    }
+
+    private void handleLocalDoorStateChange(int doorId, boolean open) {
+        if (gameClient != null && gameClient.connected) {
+            gameClient.sendDoorState(doorId, open);
         }
     }
 

@@ -7,7 +7,9 @@ import com.esotericsoftware.kryonet.Connection;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
  * 🔹 Classe GameClient
@@ -23,6 +25,7 @@ public class GameClient {
     private final String host;
     int myId;
     private final Map<Integer, PacketPlayer> remotePlayers = new ConcurrentHashMap<>();
+    private final Queue<PacketDoorState> pendingDoorStates = new ConcurrentLinkedQueue<>();
     private volatile PacketStartGame pendingStartGame;
     private volatile PacketGameOver pendingGameOver;
 
@@ -82,6 +85,11 @@ public class GameClient {
                 {
                     pendingGameOver = over;
                 }
+
+                if (o instanceof PacketDoorState doorState)
+                {
+                    pendingDoorStates.add(doorState);
+                }
             }
         });
 
@@ -132,6 +140,14 @@ public class GameClient {
         client.sendTCP(cfg);
     }
 
+    public void sendDoorState(int doorId, boolean open) {
+        if (!connected) return;
+        PacketDoorState state = new PacketDoorState();
+        state.doorId = doorId;
+        state.open = open;
+        client.sendTCP(state);
+    }
+
     public PacketStartGame pollStartGamePacket() {
         PacketStartGame pkt = pendingStartGame;
         pendingStartGame = null;
@@ -142,5 +158,9 @@ public class GameClient {
         PacketGameOver pkt = pendingGameOver;
         pendingGameOver = null;
         return pkt;
+    }
+
+    public PacketDoorState pollDoorStatePacket() {
+        return pendingDoorStates.poll();
     }
 }
