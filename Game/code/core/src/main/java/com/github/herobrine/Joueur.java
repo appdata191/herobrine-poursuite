@@ -4,11 +4,17 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.github.herobrine.reseau.PacketPlayer;
+
+import java.util.HashMap;
+import java.util.Map;
 
 public class Joueur {
     private Texture texture;
     private float x, y;
     private float speed = 300f;
+    private int id;
+    private final Map<Integer, RemotePlayerState> otherPlayers = new HashMap<>();
 
     // physics
     private float vy = 0f;
@@ -17,6 +23,7 @@ public class Joueur {
     private boolean onGround = true;
 
     private float elapsedTime = 0f;
+    private boolean dead = false;
 
     // Hitbox composite
     private final float playerHeight = 120f;
@@ -135,6 +142,10 @@ public class Joueur {
     
     public void render(SpriteBatch batch, float cameraX) {
         batch.draw(texture, x - cameraX, y, bodyWidth, playerHeight);
+        for (RemotePlayerState remote : otherPlayers.values()) {
+            if (remote.dead) continue;
+            batch.draw(texture, remote.x - cameraX, remote.y, bodyWidth, playerHeight);
+        }
     }
 
     public void dispose() {
@@ -151,4 +162,34 @@ public class Joueur {
     public float getBodyWidth() { return bodyWidth; }
     public float getFeetWidth() { return feetWidth; }
     public float getFeetOffsetX() { return feetOffsetX; }
+    public boolean isDead() { return dead; }
+    public void setDead(boolean dead) { this.dead = dead; }
+
+    public void updateRemotePlayers(Map<Integer, PacketPlayer> remoteStates) {
+        otherPlayers.clear();
+        if (remoteStates == null) return;
+        for (PacketPlayer pkt : remoteStates.values()) {
+            if (pkt == null) continue;
+            RemotePlayerState state = new RemotePlayerState();
+            state.id = pkt.id;
+            state.x = pkt.x;
+            state.y = pkt.y;
+            state.dead = pkt.dead;
+            otherPlayers.put(state.id, state);
+        }
+    }
+
+    public boolean isAnyRemoteDead() {
+        for (RemotePlayerState state : otherPlayers.values()) {
+            if (state.dead) return true;
+        }
+        return false;
+    }
+
+    private static class RemotePlayerState {
+        int id;
+        float x;
+        float y;
+        boolean dead;
+    }
 }

@@ -10,6 +10,11 @@ import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
+import com.github.herobrine.reseau.GameClient;
+import com.github.herobrine.reseau.GameServer;
+import com.github.herobrine.reseau.PacketGameOver;
+import com.github.herobrine.reseau.PacketStartGame;
+import java.io.IOException;
 
 public class Main extends ApplicationAdapter {
     private SpriteBatch batch;
@@ -31,11 +36,23 @@ public class Main extends ApplicationAdapter {
     private GameOverMenuOverlay gameOverMenu;
     private LevelSelectionMenuScreen levelSelectionMenu;
     private CreateMap createMap;
+    private MultiplayerMenuScreen multiplayerMenu;
+    private MultiplayerWaitingScreen multiplayerWaitingScreen;
+
+    // Réseau
+    private GameServer gameServer;
+    private GameClient gameClient;
+    private String remoteHost = "127.0.0.1";
+
+    private static final String DEFAULT_REMOTE_HOST = "127.0.0.1" ;
 
     // États
     private float cameraX = 0f;
     private boolean isEditing = false;
+    private boolean waitingForMultiplayerStart = false;
+    private String pendingLevelPath = null;
     private static final float BACKGROUND_EXTRA_HEIGHT = 60f;
+    private boolean multiplayerSessionActive = false;
 
     @Override
     public void create() {
@@ -64,6 +81,8 @@ public class Main extends ApplicationAdapter {
         pauseMenu = new PauseMenuOverlay(uiSkin, this);
         gameOverMenu = new GameOverMenuOverlay(uiSkin, this);
         levelSelectionMenu = new LevelSelectionMenuScreen(uiSkin, this, LevelSelectionMenuScreen.SelectionMode.PLAY);
+        multiplayerMenu = new MultiplayerMenuScreen(uiSkin, this);
+        multiplayerWaitingScreen = new MultiplayerWaitingScreen(uiSkin, this);
         launchMenu.activate();
     }
 
@@ -90,12 +109,57 @@ public class Main extends ApplicationAdapter {
         if (isEditing) {
             createMap.activate(levelPath);
         } else {
+            setMultiplayerSessionActive(false);
             initGame(levelPath);
         }
     }
 
     public void showEditorMenu() { editorStartMenu.activate(); }
     public void startEditor() { createMap.activate(null); }
+    public void showMultiplayerMenu() {
+        launchMenu.deactivate();
+        multiplayerWaitingScreen.deactivate();
+        multiplayerMenu.activate();
+    }
+    public void showLaunchMenuOnly() {
+        multiplayerMenu.deactivate();
+        multiplayerWaitingScreen.deactivate();
+        waitingForMultiplayerStart = false;
+        pendingLevelPath = null;
+        setMultiplayerSessionActive(false);
+        launchMenu.activate();
+    }
+    public void showMultiplayerWaitingScreen(String statusMessage) {
+        multiplayerMenu.deactivate();
+        multiplayerWaitingScreen.setStatusText(statusMessage);
+        multiplayerWaitingScreen.activate();
+    }
+    public void cancelMultiplayerWait() {
+        stopNetwork();
+        multiplayerWaitingScreen.deactivate();
+        multiplayerMenu.activate();
+    }
+    public void awaitMultiplayerStart() {
+        waitingForMultiplayerStart = true;
+    }
+    public boolean configureMultiplayerLobby(String levelPath, int expectedPlayers) {
+        if (gameClient == null || !gameClient.connected) {
+            System.out.println("Client non connecté, impossible de configurer le lobby multijoueur.");
+            return false;
+        }
+        if (levelPath == null || levelPath.isBlank() || expectedPlayers <= 0) {
+            System.out.println("Paramètres de lobby invalides.");
+            return false;
+        }
+        waitingForMultiplayerStart = true;
+        pendingLevelPath = levelPath;
+        gameClient.sendLobbyConfig(levelPath, expectedPlayers);
+        System.out.println("Lobby configuré : " + levelPath + " pour " + expectedPlayers + " joueurs.");
+        return true;
+    }
+    public boolean isClientConnected() {
+        return gameClient != null && gameClient.connected;
+    }
     public void returnToLaunchMenu() { goToLaunchMenu(); }
     public void quitGame() { Gdx.app.exit(); }
     public void togglePause() {
@@ -124,8 +188,9 @@ public class Main extends ApplicationAdapter {
         carte.create(levelPath);
         if (joueur != null) joueur.dispose();
         
-        joueur = new Joueur(carte.getTile() * 4, carte.getTile() * 10);
+        joueur = new Joueur(carte.getTile() * 5, carte.getSurfaceYAt(5));
         joueur.create();
+        joueur.setDead(false);
         cameraX = 0f;
         if (pauseMenu.isActive()) pauseMenu.deactivate();
         if (gameOverMenu.isActive()) gameOverMenu.deactivate();
@@ -144,6 +209,11 @@ public class Main extends ApplicationAdapter {
         createMap.deactivate();
         pauseMenu.deactivate();
         gameOverMenu.deactivate();
+        multiplayerMenu.deactivate();
+        multiplayerWaitingScreen.deactivate();
+        waitingForMultiplayerStart = false;
+        pendingLevelPath = null;
+        setMultiplayerSessionActive(false);
 
         launchMenu.activate();
     }
@@ -153,6 +223,10 @@ public class Main extends ApplicationAdapter {
         float delta = Gdx.graphics.getDeltaTime();
         Gdx.gl.glClearColor(0.1f, 0.1f, 0.2f, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+
+        if (multiplayerSessionActive) {
+            processNetworkEvents();
+        }
 
         if (!isGameBlocked()) {
             updateGame(delta);
@@ -174,6 +248,8 @@ public class Main extends ApplicationAdapter {
         if (pauseMenu.isActive()) pauseMenu.render();
         if (gameOverMenu.isActive()) gameOverMenu.render();
         if (levelSelectionMenu.isActive()) levelSelectionMenu.render();
+        if (multiplayerMenu.isActive()) multiplayerMenu.render();
+        if (multiplayerWaitingScreen.isActive()) multiplayerWaitingScreen.render();
         
         if (createMap.isActive()) {
             if (createMap.updateInput() == 1) goToLaunchMenu();
@@ -181,23 +257,81 @@ public class Main extends ApplicationAdapter {
         }
     }
 
+    private void processNetworkEvents() {
+        if (gameClient == null || !gameClient.connected) return;
+
+        PacketStartGame startPacket = gameClient.pollStartGamePacket();
+        if (startPacket != null) {
+            waitingForMultiplayerStart = false;
+            pendingLevelPath = startPacket.levelPath;
+            multiplayerWaitingScreen.deactivate();
+            initGame(startPacket.levelPath);
+        }
+
+        PacketGameOver overPacket = gameClient.pollGameOverPacket();
+        if (overPacket != null) {
+            String reason = (overPacket.reason != null && !overPacket.reason.isBlank())
+                ? overPacket.reason
+                : "Partie terminée.";
+            waitingForMultiplayerStart = false;
+            pendingLevelPath = null;
+            multiplayerWaitingScreen.deactivate();
+            triggerGameOver(reason);
+        }
+    }
+
     private boolean isGameBlocked() {
         return launchMenu.isActive() || editorStartMenu.isActive() || levelSelectionMenu.isActive() ||
-               createMap.isActive() || pauseMenu.isActive() || gameOverMenu.isActive();
+               createMap.isActive() || pauseMenu.isActive() || gameOverMenu.isActive() ||
+               multiplayerMenu.isActive() || multiplayerWaitingScreen.isActive() || waitingForMultiplayerStart;
     }
 
     private void handleGlobalInput() {
         if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE) && joueur != null) {
             togglePause();
         }
+
     }
 
     private void updateGame(float delta) {
         joueur.update(delta, carte);
         updateCamera();
-        if (carte.updateAutomates(delta, joueur)) triggerGameOver("Vous vous etes fait tuer !");
+        if (carte.updateAutomates(delta, joueur)) {
+            joueur.setDead(true);
+            triggerGameOver("Vous vous etes fait tuer !");
+        }
+        if (joueur.getY() < 1) {
+            joueur.setDead(true);
+            triggerGameOver("Vous etes tombe dans un gouffre !");
+        }
+        if (multiplayerSessionActive) {
+            syncNetworkState();
+        } else if (joueur != null) {
+            joueur.updateRemotePlayers(null);
+        }
         if (joueur.getX() + joueur.getWidth() >= carte.getMapWidth()) triggerGameOver("Vous avez gagné !");
-        if (joueur.getY() < 1) triggerGameOver("Vous etes tombe dans un gouffre !");
+    }
+
+    private void syncNetworkState() {
+        if (joueur == null) return;
+        if (gameClient == null || !gameClient.connected) {
+            joueur.updateRemotePlayers(null);
+            return;
+        }
+
+        gameClient.sendPlayerState(joueur.getX(), joueur.getY(), joueur.isDead());
+        joueur.updateRemotePlayers(gameClient.getRemotePlayersSnapshot());
+        if (joueur.isAnyRemoteDead()) {
+            triggerGameOver("Un autre joueur est mort !");
+        }
+    }
+
+    private void setMultiplayerSessionActive(boolean active) {
+        if (multiplayerSessionActive == active) return;
+        multiplayerSessionActive = active;
+        if (!active && joueur != null) {
+            joueur.updateRemotePlayers(null);
+        }
     }
 
     // --- MÉTHODES MANQUANTES RÉINTÉGRÉES ---
@@ -231,8 +365,98 @@ public class Main extends ApplicationAdapter {
         font.draw(batch, "Temps : " + (int)(joueur.getElapsedTime()) + "s", 20, Gdx.graphics.getHeight() - 20);
     }
 
+    // --- Gestion du réseau ---
+
+    public String getRemoteHost() {
+        return remoteHost;
+    }
+
+    public void setRemoteHost(String host) {
+        if (host != null && !host.isBlank()) {
+            remoteHost = host.trim();
+        } else {
+            remoteHost = DEFAULT_REMOTE_HOST;
+        }
+    }
+
+    public void hostLocalServer() {
+        if (gameServer != null) {
+            System.out.println("Serveur déjà lancé.");
+            return;
+        }
+        try {
+            gameServer = new GameServer();
+            System.out.println("Serveur local prêt.");
+        } catch (IOException e) {
+            System.err.println("Impossible de démarrer le serveur local.");
+            e.printStackTrace();
+        }
+    }
+
+    public void hostAndPlay() {
+        try {
+            if (gameServer == null) {
+                gameServer = new GameServer();
+                System.out.println("✅ Serveur local démarré.");
+            } else {
+                System.out.println("⚠️ Serveur déjà actif.");
+            }
+
+            if (gameClient == null || !gameClient.connected) {
+                String host = (remoteHost != null && !remoteHost.isBlank()) ? remoteHost : DEFAULT_REMOTE_HOST;
+                gameClient = new GameClient(host);
+                setMultiplayerSessionActive(true);
+                System.out.println("✅ Client local connecté au serveur local.");
+            } else {
+                System.out.println("⚠️ Client déjà connecté.");
+            }
+        } catch (IOException e) {
+            System.err.println("❌ Échec du mode Host & Play.");
+            e.printStackTrace();
+        }
+    }
+
+    public void connectToConfiguredHost() {
+        startClient(remoteHost);
+    }
+
+    public void startClient(String host) {
+        if (gameClient != null && gameClient.connected) {
+            System.out.println("Client déjà connecté.");
+            return;
+        }
+        try {
+            gameClient = new GameClient(host);
+            setMultiplayerSessionActive(true);
+        } catch (IOException e) {
+            System.err.println("Échec de connexion au serveur " + host);
+            e.printStackTrace();
+        }
+    }
+
+    public void stopNetwork() {
+        setMultiplayerSessionActive(false);
+        if (gameClient != null) {
+            gameClient.stop();
+            gameClient = null;
+        }
+        if (gameServer != null) {
+            gameServer.stop();
+            gameServer = null;
+        }
+        if (joueur != null) {
+            joueur.updateRemotePlayers(null);
+        }
+        waitingForMultiplayerStart = false;
+        pendingLevelPath = null;
+        if (multiplayerWaitingScreen != null) {
+            multiplayerWaitingScreen.deactivate();
+        }
+    }
+
     @Override
     public void dispose() {
+        stopNetwork();
         batch.dispose();
         shapeRenderer.dispose();
         font.dispose();
@@ -255,5 +479,7 @@ public class Main extends ApplicationAdapter {
 
         if (doorTex != null) doorTex.dispose();
         if (pressurePlateTex != null) pressurePlateTex.dispose();
+        multiplayerMenu.dispose();
+        multiplayerWaitingScreen.dispose();
     }
 }

@@ -235,11 +235,14 @@ public class Carte {
     }
 
     public boolean updateAutomates(float delta, Joueur joueur) {
-        boolean playerKilled = false;
+
         for (AutomateMortel auto : automates) {
             auto.update(delta);
             if (auto.kill(joueur)) {
-                playerKilled = true;
+
+                joueur.setDead(true);
+                return true;
+
             }
         }
 
@@ -284,7 +287,7 @@ public class Carte {
                 }
             }
         }
-        return playerKilled;
+        return false;
     }
 
     public int getTile() { return TILE; }

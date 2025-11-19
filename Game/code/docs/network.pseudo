@@ -1,0 +1,118 @@
+#public static final = psl
+#Dùng để tạo network cho libgdx của java
+#Kiểu biến ngoài cơ bản của java: EndPoint, Kryo được lấy từ KryoNet
+#Phần tử được truyền vào: PacketString
+class Network{
+    psl int TCP_PORT = 54555
+    psl int UDP_PORT = 54777
+    
+    #đăng ký gói packet được phép
+    ps void register(EndPoint endpoint)
+    {
+        Kryo kryo = endpoint.getKryo()
+        kryo.register(PacketString.class)
+    }
+}
+
+#kiểu biến ngoài các biến cơ bản của Java: Server, Kryo, Listener, Connection
+#private = p, public = ps
+#hàm có dấu + đằn trước => hàm AI tự viết theo hướng dẫn trong # bên cạnh
+class Server{
+    p Server server
+    ps MyServer() Throw IOException
+    {
+        +tạo mảng hasmap với int id và [x,y,dead] của từng player
+        create(server) #tạo server mới
+        server.start()
+        server.bind(Network.TCP_PORT, Network.UDP_PORT)
+
+        getKryo() #tạo kryo và lấy kryo
+        kryo.register(PacketString.class)
+
+        server.addListener(new Listener)
+        {
+            #các hàm phía dưới là hàm override từ Listener
+            +ps void connected(Connection c) #in khi client kết nối
+            +ps void received(Connection c, Object o) #in khi server nhận được packet
+            +ps void disconnected(Connection c) #in khi client ngắt kết nối
+            #kết thúc các hàm override
+        }
+        +In rằng đang chạy server
+    }       
+
+    +ps void Broad(Object packer) #Gửi packet cho tất cả các client kết nối
+    +ps void Stop() #dừng server, giải phóng tài nguyên và close
+    +ps static void Main(String[] args) #Chạy server
+}
+
+#hàm xử lí việc Client kết nối tới server
+#private = p, public = ps
+#hàm có dấu + đằn trước => hàm AI tự viết theo hướng dẫn trong # bên cạnh
+#Thuộc tính thêm ngoài các thuộc tính cơ bản của java:Client, Listener
+publc class GameClient
+{
+    ps Client client
+    ps boolean connected = false
+
+    #hàm khởi tạo
+    public GameClient Throw IOException
+    {
+        +tạo biến client mới
+        +đăng ký lớp client nhờ class Network có sẵn
+        client.start()
+        +kết nối với server bằng biến client, qua 5000, localhost, TCP và UDP
+        +Nếu kết nối thành công thì connected=true và in ra
+
+        client.addListener(new Listener()
+        {
+            #các hàm từ ''' đến ''' tiếp theo đều là các hàm override
+            ps void disconnected(Connection c) #in khi client ngắt kết nối => connected=false
+            ps void received(Connection c, Object o) #in khi client nhận được packet từ server
+            '''
+        })
+    }
+
+    ps void sendMessage(String message)
+    {
+        +nếu không connected thì in lỗi và return
+        +tạo packet mới với message truyền vào nhờ class PacketString có sẵn
+        client.sendTCP(packet) #gửi packet qua TCP
+        +in message
+    }
+
+    +ps void stop() # dọn dẹp, dừng 
+}
+
+
+public class PacketOrder
+{
+    public OrderArray = ["right", "left", "up", "down", "space"]
+    public int order = -1
+
+    public PacketOrder() {}
+
+    public PackketOrder(String orderStr)
+    {
+        this.order = OrderArray.indexOf(orderStr)
+    }
+}
+
+#dấu + là bảo hàm AI tự viết theo hướng dẫn trong # bên cạnh
+@override
+public void received (Connection c, Object o)
+{
+    if (+ kiểm tra nếu như o là kiểu PacketOrder)
+    {
+        +in ra thông báo server đã nhận được order
+        
+    }
+}
+
+#ps = public
+public PacketPlayer{
+    ps float x
+    ps float y
+    bool dead = false
+
+    +2 hàm khởi tạo mặc định và truyền x,y,dead
+}

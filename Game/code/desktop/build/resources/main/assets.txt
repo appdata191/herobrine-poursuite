@@ -33,9 +33,23 @@ Porte fermee.png
 Porte ouverte.png
 assets/levels/gouffre.txt
 assets/levels/ok.txt
+<<<<<<< HEAD
 assets/levels/testppetd.txt
+=======
+assets/levels/vl.txt
+>>>>>>> server
 creeper.png
 herobrine.png
+hs_err_pid25395.log
+hs_err_pid38687.log
+hs_err_pid42387.log
+hs_err_pid43724.log
+hs_err_pid45109.log
+hs_err_pid52016.log
+hs_err_pid53713.log
+hs_err_pid6738.log
+hs_err_pid8604.log
+hs_err_pid90288.log
 levels/Fond_sapin.png
 levels/level1.txt
 libgdx.png

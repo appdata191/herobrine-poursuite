@@ -1,0 +1,140 @@
+#----------------------------------------------
+# Fichier principal du jeu - Main.pseudo
+#----------------------------------------------
+package com.github.herobrine
+
+import LibGDX classes: ApplicationAdapter, Gdx, Input, GL20, Color, Texture, BitmapFont, SpriteBatch, ShapeRenderer, Skin
+import Réseau: GameClient, GameServer, PacketString
+import Autres classes internes du jeu: Carte, Joueur, UIFactory, CreateMap, GameLaunchMenuScreen, etc.
+import java.io.IOException
+
+class Main extends ApplicationAdapter
+{
+    #------------------------------------------------------------
+    # Attributs de base du moteur graphique
+    #------------------------------------------------------------
+    p SpriteBatch batch
+    p ShapeRenderer shapeRenderer
+    p BitmapFont font
+    p Skin uiSkin
+
+    #------------------------------------------------------------
+    # Textures principales du jeu
+    #------------------------------------------------------------
+    p Texture background, blockTop, blockBottom, creeperTex, picsTex
+
+    #------------------------------------------------------------
+    # Objets du jeu (monde, joueur, carte)
+    #------------------------------------------------------------
+    p Carte carte
+    p Joueur joueur
+
+    #------------------------------------------------------------
+    # Écrans et menus
+    #------------------------------------------------------------
+    p GameLaunchMenuScreen launchMenu
+    p EditorStartMenuScreen editorStartMenu
+    p PauseMenuOverlay pauseMenu
+    p GameOverMenuOverlay gameOverMenu
+    p LevelSelectionMenuScreen levelSelectionMenu
+    p CreateMap createMap
+
+    #------------------------------------------------------------
+    # Réseau (client / serveur)
+    #------------------------------------------------------------
+    p GameServer gameServer
+    p GameClient gameClient
+    p String remoteHost = "localhost"
+    ps final DEFAULT_REMOTE_HOST = "localhost"
+
+    #------------------------------------------------------------
+    # États du jeu
+    #------------------------------------------------------------
+    p float cameraX = 0
+    p boolean isEditing = false
+    ps final float BACKGROUND_EXTRA_HEIGHT = 60
+
+    #------------------------------------------------------------
+    # Méthode create() : initialisation
+    #------------------------------------------------------------
+    @Override
+    ps void create()
+    {
+        +Créer batch, shapeRenderer, font
+        +Charger textures : Fond_simple.png, Bloc du dessus.png, Bloc du dessous.png, creeper.png, Picss.png
+        +Créer Skin via UIFactory
+        +Créer carte et createMap
+
+        +Initialiser menus (launchMenu, editorStartMenu, pauseMenu, etc.)
+        +Activer launchMenu
+    }
+
+    #------------------------------------------------------------
+    # Navigation entre menus et niveaux
+    #------------------------------------------------------------
+    ps void startLevelSelection(forEditing: boolean)
+    ps void returnToPreviousMenuFromSelection()
+    ps void onLevelSelected(levelPath: String)
+    ps void showEditorMenu()
+    ps void startEditor()
+    ps void returnToLaunchMenu()
+    ps void quitGame()
+    ps void togglePause()
+    ps void restartLevel()
+    p  void triggerGameOver(message: String)
+    p  void initGame(levelPath: String)
+    p  void goToLaunchMenu()
+
+    #------------------------------------------------------------
+    # Boucle principale de rendu
+    #------------------------------------------------------------
+    @Override
+    ps void render()
+    {
+        +Nettoyer écran (glClear)
+        +Si jeu pas bloqué → updateGame(delta)
+        +Gérer entrées clavier globales (ESC, F5, F6, F7)
+        +Démarrer batch → dessiner fond, carte, joueur, HUD → terminer batch
+        +Dessiner les écrans UI actifs
+    }
+
+    #------------------------------------------------------------
+    # Méthodes utilitaires du rendu
+    #------------------------------------------------------------
+    p boolean isGameBlocked()
+    p void handleGlobalInput()
+    p void updateGame(delta: float)
+    p void drawBackground()
+    p void updateCamera()
+    p void renderHUD()
+
+    #------------------------------------------------------------
+    # --- Gestion du réseau ---
+    #------------------------------------------------------------
+    ps void setRemoteHost(host: String)
+    ps void hostLocalServer()
+        # Si aucun serveur lancé, créer new GameServer()
+    ps void connectToConfiguredHost()
+        # Connecter au serveur défini dans remoteHost
+    ps void startClient(host: String)
+        # Créer client et se connecter (GameClient)
+    ps void sendNetworkMessage(message: String)
+        # Si client connecté => client.sendMessage()
+        # Sinon si serveur => serveur.broadcast(PacketString)
+    ps void stopNetwork()
+        # Arrêter client + serveur si existants
+    
+    ps voidAndPlay()
+
+    #------------------------------------------------------------
+    # Méthode de destruction des ressources
+    #------------------------------------------------------------
+    @Override
+    ps void dispose()
+    {
+        +stopNetwork()
+        +libérer batch, shapeRenderer, font, uiSkin
+        +libérer toutes les textures
+        +dispose() des objets du jeu et des menus
+    }
+}
