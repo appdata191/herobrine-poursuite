@@ -42,38 +42,44 @@ public class GameClient {
         client.addListener(new Listener() {
             
             @Override
-            public void connected(Connection c) {
+            public void connected(Connection c) 
+            {
                 myId = c.getID();
 
                 connected = true;
             }               
 
             @Override
-            public void disconnected(Connection c) {
+            public void disconnected(Connection c) 
+            {
                 connected = false;
                 System.out.println("❌ Client déconnecté du serveur.");
             }
 
             @Override
-            public void received(Connection c, Object o) {
-                if (o instanceof PacketPlayer pkt) {
-
+            public void received(Connection c, Object o) 
+            {
+                if (o instanceof PacketPlayer pkt) 
+                {
                     if (pkt.id == myId) return;
 
                     remotePlayers.put(pkt.id, pkt);
                 }
 
-                if (o instanceof PacketDisconnect pd) {
+                if (o instanceof PacketDisconnect pd) 
+                {
                     System.out.println("Player " + pd.id + " disconnected, removing.");
                     remotePlayers.remove(pd.id);
                 }
 
-                if (o instanceof PacketStartGame start) {
+                if (o instanceof PacketStartGame start) 
+                {
                     pendingStartGame = start;
                     System.out.println("Received start game packet.");
                 }
 
-                if (o instanceof PacketGameOver over) {
+                if (o instanceof PacketGameOver over) 
+                {
                     pendingGameOver = over;
                 }
             }
@@ -108,11 +114,13 @@ public class GameClient {
         }
     }
 
-    public String getHost() {
+    public String getHost() 
+    {
         return host;
     }
 
-    public Map<Integer, PacketPlayer> getRemotePlayersSnapshot() {
+    public Map<Integer, PacketPlayer> getRemotePlayersSnapshot() 
+    {
         return new HashMap<>(remotePlayers);
     }
 
