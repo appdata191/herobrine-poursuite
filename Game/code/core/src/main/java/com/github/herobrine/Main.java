@@ -53,6 +53,7 @@ public class Main extends ApplicationAdapter {
     private String pendingLevelPath = null;
     private static final float BACKGROUND_EXTRA_HEIGHT = 60f;
     private boolean multiplayerSessionActive = false;
+    private boolean isHostPlayer = false;
 
     @Override
     public void create() {
@@ -171,6 +172,10 @@ public class Main extends ApplicationAdapter {
         }
     }
     public void restartLevel() {
+        if (multiplayerSessionActive && !canCurrentPlayerRestart()) {
+            System.out.println("Seul l'hôte peut redémarrer une partie multijoueur.");
+            return;
+        }
         if (carte.getCurrentLevelPath() != null) {
             gameOverMenu.deactivate();
             initGame(carte.getCurrentLevelPath());
@@ -181,6 +186,7 @@ public class Main extends ApplicationAdapter {
     private void triggerGameOver(String message) {
         if (gameOverMenu.isActive()) return;
         gameOverMenu.setMessage(message);
+        gameOverMenu.setRestartButtonVisible(canCurrentPlayerRestart());
         gameOverMenu.activate();
     }
 
@@ -332,6 +338,7 @@ public class Main extends ApplicationAdapter {
         if (!active && joueur != null) {
             joueur.updateRemotePlayers(null);
         }
+        refreshRestartButtonState();
     }
 
     // --- MÉTHODES MANQUANTES RÉINTÉGRÉES ---
@@ -387,6 +394,7 @@ public class Main extends ApplicationAdapter {
         try {
             gameServer = new GameServer();
             System.out.println("Serveur local prêt.");
+            setHostPlayer(true);
         } catch (IOException e) {
             System.err.println("Impossible de démarrer le serveur local.");
             e.printStackTrace();
@@ -405,6 +413,7 @@ public class Main extends ApplicationAdapter {
             if (gameClient == null || !gameClient.connected) {
                 String host = (remoteHost != null && !remoteHost.isBlank()) ? remoteHost : DEFAULT_REMOTE_HOST;
                 gameClient = new GameClient(host);
+                setHostPlayer(true);
                 setMultiplayerSessionActive(true);
                 System.out.println("✅ Client local connecté au serveur local.");
             } else {
@@ -427,6 +436,7 @@ public class Main extends ApplicationAdapter {
         }
         try {
             gameClient = new GameClient(host);
+            setHostPlayer(false);
             setMultiplayerSessionActive(true);
         } catch (IOException e) {
             System.err.println("Échec de connexion au serveur " + host);
@@ -451,6 +461,23 @@ public class Main extends ApplicationAdapter {
         pendingLevelPath = null;
         if (multiplayerWaitingScreen != null) {
             multiplayerWaitingScreen.deactivate();
+        }
+        setHostPlayer(false);
+    }
+
+    private boolean canCurrentPlayerRestart() {
+        return !multiplayerSessionActive || isHostPlayer;
+    }
+
+    private void setHostPlayer(boolean isHost) {
+        if (this.isHostPlayer == isHost) return;
+        this.isHostPlayer = isHost;
+        refreshRestartButtonState();
+    }
+
+    private void refreshRestartButtonState() {
+        if (gameOverMenu != null) {
+            gameOverMenu.setRestartButtonVisible(canCurrentPlayerRestart());
         }
     }
 

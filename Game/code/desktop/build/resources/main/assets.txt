@@ -39,6 +39,7 @@ assets/levels/vl.txt
 creeper.png
 herobrine.png
 hs_err_pid25395.log
+hs_err_pid34909.log
 hs_err_pid38687.log
 hs_err_pid42387.log
 hs_err_pid43724.log

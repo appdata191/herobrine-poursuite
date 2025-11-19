@@ -6,11 +6,13 @@ import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
+import com.badlogic.gdx.scenes.scene2d.Touchable;
 
 public class GameOverMenuOverlay extends AbstractMenuScreen {
 
     private final Main game;
     private final Label messageLabel;
+    private final TextButton restartButton;
 
     public GameOverMenuOverlay(Skin skin, final Main game) {
         super(skin);
@@ -19,7 +21,7 @@ public class GameOverMenuOverlay extends AbstractMenuScreen {
         skin.add("default", new Label.LabelStyle(skin.getFont("default-font"), Color.WHITE));
         messageLabel = new Label("", skin);
 
-        TextButton restartButton = new TextButton("Recommencer", skin);
+        restartButton = new TextButton("Recommencer", skin);
         TextButton quitButton = new TextButton("Quitter le jeu", skin);
         TextButton mainMenuButton = new TextButton("Retour au menu principal", skin);
 
@@ -55,5 +57,11 @@ public class GameOverMenuOverlay extends AbstractMenuScreen {
 
     public void setMessage(String message) {
         messageLabel.setText(message);
+    }
+
+    public void setRestartButtonVisible(boolean visible) {
+        restartButton.setVisible(visible);
+        restartButton.setDisabled(!visible);
+        restartButton.setTouchable(visible ? Touchable.enabled : Touchable.disabled);
     }
 }
