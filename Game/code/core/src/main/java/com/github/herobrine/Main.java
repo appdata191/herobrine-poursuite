@@ -188,7 +188,7 @@ public class Main extends ApplicationAdapter {
         carte.create(levelPath);
         if (joueur != null) joueur.dispose();
         
-        joueur = new Joueur(carte.getTile() * 5, carte.getSurfaceYAt(5));
+        joueur = new Joueur(carte.getTile() * 5, carte.getGroundYAtGridX(5));
         joueur.create();
         joueur.setDead(false);
         cameraX = 0f;

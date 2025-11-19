@@ -33,11 +33,9 @@ Porte fermee.png
 Porte ouverte.png
 assets/levels/gouffre.txt
 assets/levels/ok.txt
-<<<<<<< HEAD
+assets/levels/plaqueplusporte.txt
 assets/levels/testppetd.txt
-=======
 assets/levels/vl.txt
->>>>>>> server
 creeper.png
 herobrine.png
 hs_err_pid25395.log
