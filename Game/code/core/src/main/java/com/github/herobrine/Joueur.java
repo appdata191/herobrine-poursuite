@@ -26,7 +26,7 @@ public class Joueur {
     private boolean dead = false;
 
     // Hitbox composite
-    private final float playerHeight = 120f;
+    private final float playerHeight = 118f;
     private final float bodyWidth = 60f;
     private final float feetWidth = 40f;
     private final float feetOffsetX = (bodyWidth - feetWidth) / 2;
