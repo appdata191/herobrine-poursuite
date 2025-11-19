@@ -124,7 +124,7 @@ public class Main extends ApplicationAdapter {
         carte.create(levelPath);
         if (joueur != null) joueur.dispose();
         
-        joueur = new Joueur(0f, 1080f);
+        joueur = new Joueur(carte.getTile() * 4, carte.getTile() * 10);
         joueur.create();
         cameraX = 0f;
         if (pauseMenu.isActive()) pauseMenu.deactivate();
