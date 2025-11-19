@@ -32,6 +32,7 @@ hs_err_pid45109.log
 hs_err_pid52016.log
 hs_err_pid53713.log
 hs_err_pid6738.log
+hs_err_pid8604.log
 hs_err_pid90288.log
 levels/Fond_sapin.png
 levels/level1.txt
