@@ -6,6 +6,10 @@ import com.esotericsoftware.kryonet.Connection;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 
 /**
@@ -23,6 +27,27 @@ public class GameServer {
     private int expectedPlayers = 0;
     private String lobbyLevelPath = null;
     private boolean gameStarted = false;
+    private final ConcurrentHashMap<Integer, RestartAckState> pendingRestartAcks = new ConcurrentHashMap<>();
+    private final ScheduledExecutorService restartScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+        Thread t = new Thread(r, "RestartAckMonitor");
+        t.setDaemon(true);
+        return t;
+    });
+    private volatile int currentRestartId = 0;
+    private volatile String pendingRestartLevel = null;
+    private static final long RESTART_RETRY_DELAY_MS = 1000L;
+    private static final int MAX_RESTART_ATTEMPTS = 5;
+
+    private static class RestartAckState {
+        final int restartId;
+        int attempts = 0;
+        long lastSendTime = 0L;
+        boolean acknowledged = false;
+
+        RestartAckState(int restartId) {
+            this.restartId = restartId;
+        }
+    }
 
     // 🔸 2. Constructeur : création et initialisation du serveur
     public GameServer() throws IOException {
@@ -83,6 +108,15 @@ public class GameServer {
                     server.sendToAllTCP(doorState);
                     return;
                 }
+
+                if (o instanceof PacketGameOver over) {
+                    server.sendToAllTCP(over);
+                    return;
+                }
+                if (o instanceof PacketRestartAck ack) {
+                    handleRestartAck(c.getID(), ack.restartId);
+                    return;
+                }
             }
 
             @Override
@@ -90,6 +124,7 @@ public class GameServer {
                 System.out.println("Client déconnecté : " + c.getID());
 
                 players.remove(c.getID());
+                pendingRestartAcks.remove(c.getID());
 
                 PacketDisconnect pd = new PacketDisconnect();
                 pd.id = c.getID();
@@ -107,6 +142,11 @@ public class GameServer {
                  }
             }
         });
+
+        restartScheduler.scheduleAtFixedRate(this::checkPendingRestartAcks,
+                RESTART_RETRY_DELAY_MS,
+                RESTART_RETRY_DELAY_MS,
+                TimeUnit.MILLISECONDS);
 
         System.out.println("Serveur lancé sur le port " + Network.TCP_PORT);
     }
@@ -139,6 +179,8 @@ public class GameServer {
         gameStarted = false;
         lobbyLevelPath = null;
         expectedPlayers = 0;
+        pendingRestartAcks.clear();
+        pendingRestartLevel = null;
     }
 
     private void broadcastStartGame(String levelPath, int playerCount) {
@@ -154,6 +196,93 @@ public class GameServer {
         gameStarted = true;
     }
 
+    private void broadcastRestartRequest(String levelPath) {
+        if (levelPath == null || levelPath.isBlank()) {
+            System.out.println("Impossible d'envoyer un redémarrage : niveau inconnu.");
+            return;
+        }
+        resetPlayersStateForRestart();
+        currentRestartId++;
+        pendingRestartLevel = levelPath;
+        pendingRestartAcks.clear();
+        Connection[] connections = server.getConnections();
+        long now = System.currentTimeMillis();
+        for (Connection conn : connections) {
+            RestartAckState state = new RestartAckState(currentRestartId);
+            state.attempts = 1;
+            state.lastSendTime = now;
+            pendingRestartAcks.put(conn.getID(), state);
+            sendRestartRequest(conn.getID(), levelPath, currentRestartId);
+        }
+        if (connections.length == 0) {
+            pendingRestartLevel = null;
+        } else {
+            System.out.println("Redémarrage demandé (" + connections.length + " clients) via requête #" + currentRestartId);
+        }
+        broadcastAllPlayers(); // diffuse l'état "vivant" remis à zéro
+        gameStarted = true;
+    }
+
+    private void sendRestartRequest(int connectionId, String levelPath, int restartId) {
+        if (levelPath == null || levelPath.isBlank()) {
+            return;
+        }
+        PacketRestartRequest request = new PacketRestartRequest();
+        request.levelPath = levelPath;
+        request.playerCount = expectedPlayers > 0 ? expectedPlayers : players.size();
+        request.restartId = restartId;
+        server.sendToTCP(connectionId, request);
+    }
+
+    private void handleRestartAck(int connectionId, int restartId) {
+        RestartAckState state = pendingRestartAcks.get(connectionId);
+        if (state == null) {
+            return;
+        }
+        if (state.restartId != restartId) {
+            return;
+        }
+        pendingRestartAcks.remove(connectionId);
+        System.out.println("Confirmation de redémarrage #" + restartId + " reçue du client " + connectionId + ".");
+        if (pendingRestartAcks.isEmpty()) {
+            pendingRestartLevel = null;
+        }
+    }
+
+    private void checkPendingRestartAcks() {
+        if (pendingRestartAcks.isEmpty()) {
+            return;
+        }
+        if (pendingRestartLevel == null) {
+            pendingRestartAcks.clear();
+            return;
+        }
+        long now = System.currentTimeMillis();
+        for (Map.Entry<Integer, RestartAckState> entry : pendingRestartAcks.entrySet()) {
+            RestartAckState state = entry.getValue();
+            if (now - state.lastSendTime < RESTART_RETRY_DELAY_MS) {
+                continue;
+            }
+        if (state.attempts >= MAX_RESTART_ATTEMPTS) {
+            System.out.println("Client " + entry.getKey() + " n'a pas confirmé le redémarrage #" + state.restartId + " après " + state.attempts + " tentatives.");
+            pendingRestartAcks.remove(entry.getKey());
+            continue;
+        }
+        sendRestartRequest(entry.getKey(), pendingRestartLevel, state.restartId);
+        state.lastSendTime = now;
+        state.attempts++;
+        }
+        if (pendingRestartAcks.isEmpty()) {
+            pendingRestartLevel = null;
+        }
+    }
+
+    private void resetPlayersStateForRestart() {
+        for (PacketPlayer p : players.values()) {
+            p.dead = false;
+        }
+    }
+
     public void restartGame(String levelPath) {
         String targetLevel = (levelPath != null && !levelPath.isBlank()) ? levelPath : lobbyLevelPath;
         if (targetLevel == null || targetLevel.isBlank()) {
@@ -161,10 +290,11 @@ public class GameServer {
             return;
         }
         lobbyLevelPath = targetLevel;
-        broadcastStartGame(lobbyLevelPath, expectedPlayers);
+        broadcastRestartRequest(targetLevel);
     }
     // 🔸 4. Méthode de nettoyage : arrêter le serveur proprement
     public void stop() {
+        restartScheduler.shutdownNow();
         server.stop();
         server.close();
         System.out.println("🛑 Serveur arrêté.");

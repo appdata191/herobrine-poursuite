@@ -45,18 +45,41 @@ public class Carte {
      * cherche des blocs solides dans les colonnes adjacentes.
      */
     public float getGroundYAtGridX(int gridX) {
-        // Étape 1 : On essaie de trouver le sol directement sous la position de départ.
-        // On parcourt la colonne de haut en bas pour trouver le premier bloc solide.
-        for (int gy = MAP_HEIGHT_TILES - 1; gy >= 0; gy--) {
-            // Vérifie si la tuile à (gridX, gy) est un bloc solide (non vide)
-            if (map[gridX][gy-1] != 0) {
-                // Si un bloc est trouvé, la surface est juste au-dessus de ce bloc.
-                return MAP_HEIGHT_TILES * TILE ;
+        if (gridX < 0) gridX = 0;
+        if (gridX >= MAP_WIDTH_TILES) gridX = MAP_WIDTH_TILES - 1;
+
+        float ground = findGroundInColumn(gridX);
+        if (ground >= 0) {
+            System.out.println("Ground found at column " + gridX + ": " + ground);
+            return ground;
+        }
+
+        for (int offset = 1; offset < MAP_WIDTH_TILES; offset++) {
+            if (gridX - offset >= 0) {
+                ground = findGroundInColumn(gridX - offset);
+                if (ground >= 0) {
+                    System.out.println("Ground found at column " + gridX + ": " + ground);
+                    return ground;
+                }
+            }
+            if (gridX + offset < MAP_WIDTH_TILES) {
+                ground = findGroundInColumn(gridX + offset);
+                if (ground >= 0) {
+                    return ground;
+                }
             }
         }
 
-        // Cas de secours ultime : si toute la carte est vide ou aucun sol n'est trouvé, on retourne 0.
         return 0;
+    }
+
+    private float findGroundInColumn(int gridX) {
+        for (int gy = MAP_HEIGHT_TILES - 1; gy >= 0; gy--) {
+            if (map[gridX][gy] != 0) {
+                return (gy + 1) * TILE;
+            }
+        }
+        return -1f;
     }
 
     private void loadLevel(String levelPath) {

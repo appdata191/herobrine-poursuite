@@ -15,6 +15,7 @@ import com.github.herobrine.reseau.GameServer;
 import com.github.herobrine.reseau.PacketDoorState;
 import com.github.herobrine.reseau.PacketGameOver;
 import com.github.herobrine.reseau.PacketStartGame;
+import com.github.herobrine.reseau.PacketRestartRequest;
 import java.io.IOException;
 
 public class Main extends ApplicationAdapter {
@@ -55,6 +56,7 @@ public class Main extends ApplicationAdapter {
     private static final float BACKGROUND_EXTRA_HEIGHT = 60f;
     private boolean multiplayerSessionActive = false;
     private boolean isHostPlayer = false;
+    private int lastHandledRestartId = -1;
 
     @Override
     public void create() {
@@ -279,8 +281,27 @@ public class Main extends ApplicationAdapter {
     private void processNetworkEvents() {
         if (gameClient == null || !gameClient.connected) return;
 
+        PacketRestartRequest restartPacket;
+        while ((restartPacket = gameClient.pollRestartRequest()) != null) {
+            if (restartPacket.restartId <= lastHandledRestartId) {
+                gameClient.sendRestartAck(restartPacket.restartId);
+                continue;
+            }
+            gameClient.resetNetworkState();
+            waitingForMultiplayerStart = false;
+            pendingLevelPath = restartPacket.levelPath;
+            multiplayerWaitingScreen.deactivate();
+            initGame(restartPacket.levelPath);
+            lastHandledRestartId = restartPacket.restartId;
+            gameClient.sendRestartAck(restartPacket.restartId);
+        }
+
         PacketStartGame startPacket = gameClient.pollStartGamePacket();
         if (startPacket != null) {
+            lastHandledRestartId = -1;
+            if (gameClient != null) {
+                gameClient.resetNetworkState();
+            }
             waitingForMultiplayerStart = false;
             pendingLevelPath = startPacket.levelPath;
             multiplayerWaitingScreen.deactivate();
@@ -325,17 +346,30 @@ public class Main extends ApplicationAdapter {
         if (carte.updateAutomates(delta, joueur)) {
             joueur.setDead(true);
             triggerGameOver("Vous vous etes fait tuer !");
+            if (multiplayerSessionActive && gameClient != null) {
+                gameClient.sendGameOver("Un joueur est mort.");
+            }
+            return;
         }
         if (joueur.getY() < 1) {
             joueur.setDead(true);
             triggerGameOver("Vous etes tombe dans un gouffre !");
+            if (multiplayerSessionActive && gameClient != null) {
+                gameClient.sendGameOver("Un joueur est mort.");
+            }
+            return;
         }
         if (multiplayerSessionActive) {
             syncNetworkState();
         } else if (joueur != null) {
             joueur.updateRemotePlayers(null);
         }
-        if (joueur.getX() + joueur.getWidth() >= carte.getMapWidth()) triggerGameOver("Vous avez gagné !");
+        if (joueur.getX() + joueur.getWidth() >= carte.getMapWidth()) {
+            triggerGameOver("Vous avez gagné !");
+            if (multiplayerSessionActive && gameClient != null) {
+                gameClient.sendGameOver("Victoire !");
+            }
+        }
     }
 
     private void syncNetworkState() {
@@ -483,6 +517,7 @@ public class Main extends ApplicationAdapter {
             multiplayerWaitingScreen.deactivate();
         }
         setHostPlayer(false);
+        lastHandledRestartId = -1;
     }
 
     private boolean canCurrentPlayerRestart() {

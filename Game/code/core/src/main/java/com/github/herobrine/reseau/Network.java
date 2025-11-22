@@ -32,6 +32,8 @@ public class Network {
         kryo.register(PacketStartGame.class);
         kryo.register(PacketGameOver.class);
         kryo.register(PacketDoorState.class);
+        kryo.register(PacketRestartRequest.class);
+        kryo.register(PacketRestartAck.class);
 
     }
 }

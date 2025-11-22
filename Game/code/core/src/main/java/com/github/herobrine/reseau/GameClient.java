@@ -28,6 +28,7 @@ public class GameClient {
     private final Queue<PacketDoorState> pendingDoorStates = new ConcurrentLinkedQueue<>();
     private volatile PacketStartGame pendingStartGame;
     private volatile PacketGameOver pendingGameOver;
+    private final Queue<PacketRestartRequest> pendingRestartRequests = new ConcurrentLinkedQueue<>();
 
     public GameClient() throws IOException 
     {
@@ -89,6 +90,12 @@ public class GameClient {
                 if (o instanceof PacketDoorState doorState)
                 {
                     pendingDoorStates.add(doorState);
+                }
+
+                if (o instanceof PacketRestartRequest restart)
+                {
+                    pendingRestartRequests.add(restart);
+                    System.out.println("Reçu une demande de redémarrage #" + restart.restartId);
                 }
             }
         });
@@ -162,5 +169,31 @@ public class GameClient {
 
     public PacketDoorState pollDoorStatePacket() {
         return pendingDoorStates.poll();
+    }
+
+    public PacketRestartRequest pollRestartRequest() {
+        return pendingRestartRequests.poll();
+    }
+
+    public void sendRestartAck(int restartId) {
+        if (!connected) return;
+        PacketRestartAck ack = new PacketRestartAck();
+        ack.restartId = restartId;
+        client.sendTCP(ack);
+    }
+
+    public void resetNetworkState() {
+        remotePlayers.clear();
+        pendingDoorStates.clear();
+        pendingStartGame = null;
+        pendingGameOver = null;
+        pendingRestartRequests.clear();
+    }
+
+    public void sendGameOver(String reason) {
+        if (!connected) return;
+        PacketGameOver over = new PacketGameOver();
+        over.reason = reason;
+        client.sendTCP(over);
     }
 }
