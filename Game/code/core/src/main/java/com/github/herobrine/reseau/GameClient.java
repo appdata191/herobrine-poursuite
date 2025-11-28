@@ -29,6 +29,7 @@ public class GameClient {
     private volatile PacketStartGame pendingStartGame;
     private volatile PacketGameOver pendingGameOver;
     private final Queue<PacketRestartRequest> pendingRestartRequests = new ConcurrentLinkedQueue<>();
+    private final Queue<PacketReturnToMenu> pendingReturnToMenu = new ConcurrentLinkedQueue<>();
 
     public GameClient() throws IOException 
     {
@@ -96,6 +97,11 @@ public class GameClient {
                 {
                     pendingRestartRequests.add(restart);
                     System.out.println("Reçu une demande de redémarrage #" + restart.restartId);
+                }
+
+                if (o instanceof PacketReturnToMenu returnToMenu)
+                {
+                    pendingReturnToMenu.add(returnToMenu);
                 }
             }
         });
@@ -188,6 +194,7 @@ public class GameClient {
         pendingStartGame = null;
         pendingGameOver = null;
         pendingRestartRequests.clear();
+        pendingReturnToMenu.clear();
     }
 
     public void sendGameOver(String reason) {
@@ -195,5 +202,16 @@ public class GameClient {
         PacketGameOver over = new PacketGameOver();
         over.reason = reason;
         client.sendTCP(over);
+    }
+
+    public PacketReturnToMenu pollReturnToMenu() {
+        return pendingReturnToMenu.poll();
+    }
+
+    public void sendReturnToMenu(String reason) {
+        if (!connected) return;
+        PacketReturnToMenu pkt = new PacketReturnToMenu();
+        pkt.reason = reason;
+        client.sendTCP(pkt);
     }
 }

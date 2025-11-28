@@ -16,6 +16,7 @@ import com.github.herobrine.reseau.PacketDoorState;
 import com.github.herobrine.reseau.PacketGameOver;
 import com.github.herobrine.reseau.PacketStartGame;
 import com.github.herobrine.reseau.PacketRestartRequest;
+import com.github.herobrine.reseau.PacketReturnToMenu;
 import java.io.IOException;
 
 public class Main extends ApplicationAdapter {
@@ -57,6 +58,9 @@ public class Main extends ApplicationAdapter {
     private boolean multiplayerSessionActive = false;
     private boolean isHostPlayer = false;
     private int lastHandledRestartId = -1;
+    private boolean waitingReturnToMenu = false;
+    private long returnToMenuRequestTimeMs = 0L;
+    private static final long RETURN_TO_MENU_TIMEOUT_MS = 1500L;
 
     @Override
     public void create() {
@@ -165,7 +169,20 @@ public class Main extends ApplicationAdapter {
     public boolean isClientConnected() {
         return gameClient != null && gameClient.connected;
     }
-    public void returnToLaunchMenu() { goToLaunchMenu(); }
+    public void returnToLaunchMenu() { 
+        if (waitingReturnToMenu) return;
+        if (multiplayerSessionActive) {
+            if (gameServer != null) {
+                gameServer.broadcastReturnToMenu("Retour au menu principal");
+            } else if (gameClient != null && gameClient.connected) {
+                gameClient.sendReturnToMenu("Retour au menu principal");
+            }
+            waitingReturnToMenu = true;
+            returnToMenuRequestTimeMs = System.currentTimeMillis();
+            return;
+        }
+        handleReturnToMenuFromNetwork("Retour local au menu principal");
+    }
     public void quitGame() { Gdx.app.exit(); }
     public void togglePause() {
         if (gameOverMenu.isActive()) return;
@@ -199,7 +216,7 @@ public class Main extends ApplicationAdapter {
         initGame(currentLevel);
     }
     private void triggerGameOver(String message) {
-        if (gameOverMenu.isActive()) return;
+        //if (gameOverMenu.isActive()) return;
         gameOverMenu.setMessage(message);
         gameOverMenu.setRestartButtonVisible(canCurrentPlayerRestart());
         gameOverMenu.activate();
@@ -245,9 +262,8 @@ public class Main extends ApplicationAdapter {
         Gdx.gl.glClearColor(0.1f, 0.1f, 0.2f, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
-        if (multiplayerSessionActive) {
-            processNetworkEvents();
-        }
+        processNetworkEvents();
+        checkReturnToMenuTimeout();
 
         if (!isGameBlocked()) {
             updateGame(delta);
@@ -280,6 +296,11 @@ public class Main extends ApplicationAdapter {
 
     private void processNetworkEvents() {
         if (gameClient == null || !gameClient.connected) return;
+
+        PacketReturnToMenu returnToMenuPacket;
+        while ((returnToMenuPacket = gameClient.pollReturnToMenu()) != null) {
+            handleReturnToMenuFromNetwork(returnToMenuPacket.reason);
+        }
 
         PacketRestartRequest restartPacket;
         while ((restartPacket = gameClient.pollRestartRequest()) != null) {
@@ -327,10 +348,17 @@ public class Main extends ApplicationAdapter {
         }
     }
 
+    private void handleReturnToMenuFromNetwork(String reason) {
+        System.out.println("Retour au menu principal demandé : " + (reason != null ? reason : ""));
+        waitingReturnToMenu = false;
+        stopNetwork();
+        goToLaunchMenu();
+    }
+
     private boolean isGameBlocked() {
         return launchMenu.isActive() || editorStartMenu.isActive() || levelSelectionMenu.isActive() ||
                createMap.isActive() || pauseMenu.isActive() || gameOverMenu.isActive() ||
-               multiplayerMenu.isActive() || multiplayerWaitingScreen.isActive() || waitingForMultiplayerStart;
+               multiplayerMenu.isActive() || multiplayerWaitingScreen.isActive() || waitingForMultiplayerStart || waitingReturnToMenu;
     }
 
     private void handleGlobalInput() {
@@ -500,6 +528,7 @@ public class Main extends ApplicationAdapter {
 
     public void stopNetwork() {
         setMultiplayerSessionActive(false);
+        waitingReturnToMenu = false;
         if (gameClient != null) {
             gameClient.stop();
             gameClient = null;
@@ -518,6 +547,14 @@ public class Main extends ApplicationAdapter {
         }
         setHostPlayer(false);
         lastHandledRestartId = -1;
+    }
+
+    private void checkReturnToMenuTimeout() {
+        if (!waitingReturnToMenu) return;
+        long now = System.currentTimeMillis();
+        if (now - returnToMenuRequestTimeMs >= RETURN_TO_MENU_TIMEOUT_MS) {
+            handleReturnToMenuFromNetwork("Timeout retour menu");
+        }
     }
 
     private boolean canCurrentPlayerRestart() {

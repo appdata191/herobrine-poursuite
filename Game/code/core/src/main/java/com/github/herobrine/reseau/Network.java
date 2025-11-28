@@ -34,6 +34,7 @@ public class Network {
         kryo.register(PacketDoorState.class);
         kryo.register(PacketRestartRequest.class);
         kryo.register(PacketRestartAck.class);
+        kryo.register(PacketReturnToMenu.class);
 
     }
 }

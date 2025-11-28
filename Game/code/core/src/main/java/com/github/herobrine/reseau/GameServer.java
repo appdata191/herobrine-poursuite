@@ -5,6 +5,7 @@ import com.esotericsoftware.kryonet.Listener;
 import com.esotericsoftware.kryonet.Connection;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
@@ -117,6 +118,11 @@ public class GameServer {
                     handleRestartAck(c.getID(), ack.restartId);
                     return;
                 }
+
+                if (o instanceof PacketReturnToMenu returnToMenu) {
+                    handleReturnToMenu(returnToMenu);
+                    return;
+                }
             }
 
             @Override
@@ -131,15 +137,14 @@ public class GameServer {
 
                 server.sendToAllTCP(pd);
 
-                 if (gameStarted) 
-                 {
-                     PacketGameOver over = new PacketGameOver();
-                     over.reason = "Un joueur s'est déconnecté.";
-                     server.sendToAllTCP(over);
-                     resetLobby();
-                 } else {
-                     checkStartConditions();
-                 }
+                if (gameStarted) 
+                {
+                    PacketReturnToMenu pkt = new PacketReturnToMenu();
+                    pkt.reason = "Un joueur s'est déconnecté.";
+                    handleReturnToMenu(pkt);
+                } else {
+                    checkStartConditions();
+                }
             }
         });
 
@@ -258,14 +263,16 @@ public class GameServer {
             return;
         }
         long now = System.currentTimeMillis();
-        for (Map.Entry<Integer, RestartAckState> entry : pendingRestartAcks.entrySet()) {
+        Iterator<Map.Entry<Integer, RestartAckState>> it = pendingRestartAcks.entrySet().iterator();
+        while (it.hasNext()) {
+            Map.Entry<Integer, RestartAckState> entry = it.next();
             RestartAckState state = entry.getValue();
             if (now - state.lastSendTime < RESTART_RETRY_DELAY_MS) {
                 continue;
             }
         if (state.attempts >= MAX_RESTART_ATTEMPTS) {
             System.out.println("Client " + entry.getKey() + " n'a pas confirmé le redémarrage #" + state.restartId + " après " + state.attempts + " tentatives.");
-            pendingRestartAcks.remove(entry.getKey());
+            it.remove();
             continue;
         }
         sendRestartRequest(entry.getKey(), pendingRestartLevel, state.restartId);
@@ -291,6 +298,20 @@ public class GameServer {
         }
         lobbyLevelPath = targetLevel;
         broadcastRestartRequest(targetLevel);
+    }
+
+    private void handleReturnToMenu(PacketReturnToMenu pkt) {
+        server.sendToAllTCP(pkt);
+        resetLobby();
+        pendingRestartAcks.clear();
+        pendingRestartLevel = null;
+        currentRestartId = 0;
+    }
+
+    public void broadcastReturnToMenu(String reason) {
+        PacketReturnToMenu pkt = new PacketReturnToMenu();
+        pkt.reason = reason;
+        handleReturnToMenu(pkt);
     }
     // 🔸 4. Méthode de nettoyage : arrêter le serveur proprement
     public void stop() {

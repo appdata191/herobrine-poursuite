@@ -28,6 +28,7 @@ public class GameOverMenuOverlay extends AbstractMenuScreen {
         restartButton.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
+                System.out.print("restart button clicked" + event + x + y);
                 game.restartLevel();
             }
         });
@@ -60,6 +61,7 @@ public class GameOverMenuOverlay extends AbstractMenuScreen {
     }
 
     public void setRestartButtonVisible(boolean visible) {
+        System.out.println("Setting restart button visibility to " + visible);
         restartButton.setVisible(visible);
         restartButton.setDisabled(!visible);
         restartButton.setTouchable(visible ? Touchable.enabled : Touchable.disabled);
