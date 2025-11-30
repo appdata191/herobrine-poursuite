@@ -43,6 +43,7 @@ public class Joueur {
 
     public void update(float delta, Carte carte) {
         elapsedTime += delta;
+        // Gérer les grands delta times en les divisant en plusieurs petites étapes pour qu'il n'y ait pas de "téléportation" à travers les murs
         int steps = Math.max(1, (int) Math.ceil(delta / MAX_STEP));
         float step = delta / steps;
 

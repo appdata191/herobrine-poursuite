@@ -64,6 +64,7 @@ public class GameClient {
             @Override
             public void received(Connection c, Object o) 
             {
+                // Gérer les différents types de paquets reçus
                 if (o instanceof PacketPlayer pkt) 
                 {
                     if (pkt.id == myId) return;
@@ -140,11 +141,13 @@ public class GameClient {
         return host;
     }
 
+    // Retourne une copie des joueurs distants
     public Map<Integer, PacketPlayer> getRemotePlayersSnapshot() 
     {
         return new HashMap<>(remotePlayers);
     }
 
+    // Envoyer la configuration du lobby au serveur
     public void sendLobbyConfig(String levelPath, int expectedPlayers) {
         if (!connected) return;
         PacketLobbyConfig cfg = new PacketLobbyConfig();
@@ -161,6 +164,7 @@ public class GameClient {
         client.sendTCP(state);
     }
 
+    // Récupérer et supprimer le paquet de démarrage du jeu en attente
     public PacketStartGame pollStartGamePacket() {
         PacketStartGame pkt = pendingStartGame;
         pendingStartGame = null;
@@ -181,6 +185,7 @@ public class GameClient {
         return pendingRestartRequests.poll();
     }
 
+    // Envoyer une confirmation de redémarrage au serveur
     public void sendRestartAck(int restartId) {
         if (!connected) return;
         PacketRestartAck ack = new PacketRestartAck();
@@ -188,6 +193,7 @@ public class GameClient {
         client.sendTCP(ack);
     }
 
+    // Réinitialiser l'état réseau du client
     public void resetNetworkState() {
         remotePlayers.clear();
         pendingDoorStates.clear();

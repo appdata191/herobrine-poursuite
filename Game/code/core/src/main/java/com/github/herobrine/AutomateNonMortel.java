@@ -4,6 +4,7 @@ import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.Rectangle;
 
+// Classe abstraite représentant un automate non mortel dans le jeu.
 public abstract class AutomateNonMortel {
     protected float x, y;
     protected Texture texture;

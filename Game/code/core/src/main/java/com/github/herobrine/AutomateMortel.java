@@ -3,6 +3,7 @@ package com.github.herobrine;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.Rectangle;
 
+// Classe abstraite représentant un automate mortel dans le jeu.
 public abstract class AutomateMortel {
     protected float x, y, width, height;
     protected Rectangle hitbox;

@@ -150,6 +150,7 @@ public class CreateMap {
 
     public boolean isActive() { return active; }
 
+    // Réinitialisation de l'état de placement
     private void resetPlacementState() {
         anchorGX = null;
         anchorGY = null;
@@ -223,6 +224,7 @@ public class CreateMap {
         }
     }
 
+    // Sauvegarde du niveau dans un fichier
     public int updateInput() {
         if (!active) return 0;
         float delta = Gdx.graphics.getDeltaTime();
@@ -275,6 +277,7 @@ public class CreateMap {
 
         handleToolShortcuts();
 
+        // Gestion des clics souris
         if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
             if (scrollbarHandle.contains(mx, my)) {
                 isDraggingScrollbar = true;
@@ -314,6 +317,7 @@ public class CreateMap {
         return 0;
     }
 
+    // Gestion des raccourcis clavier pour les nouveaux outils
     private void handleToolShortcuts() {
         // NOUVEAU : Ajout des touches 4 et 5
         int[] keys = {Input.Keys.NUM_1, Input.Keys.NUM_2, Input.Keys.NUM_3, Input.Keys.NUM_4, Input.Keys.NUM_5};
@@ -327,6 +331,7 @@ public class CreateMap {
         }
     }
 
+    // Méthode de sauvegarde du niveau dans un fichier
     private boolean pickToolFromMap(int gx, int gy) {
         // NOUVEAU : Logique de pipette pour les portes et plaques
         for (int[] d : doors) {
@@ -371,6 +376,7 @@ public class CreateMap {
         return false;
     }
 
+    // Gestion du clic de placement
     private void handlePlacingClick() {
         Tool currentTool = tools[selectionIndex];
         // NOUVEAU : Les portes et plaques sont des outils à clic simple
@@ -458,6 +464,7 @@ public class CreateMap {
         }
     }
 
+    
     private boolean checkToolSelectionClick(int mx, int my) {
         for (int i = 0; i < toolSlots.size(); i++) {
             Rectangle slot = toolSlots.get(i);
@@ -735,5 +742,213 @@ public class CreateMap {
         } catch (Exception e) {
             Gdx.app.log("CreateMap", "Erreur save: " + e.getMessage());
         }
+    }
+
+    public int getTILE() {
+        return TILE;
+    }
+
+    public float getEXTRA_HEIGHT() {
+        return EXTRA_HEIGHT;
+    }
+
+    public Texture getBackground() {
+        return background;
+    }
+
+    public Texture getBlockTop() {
+        return blockTop;
+    }
+
+    public Texture getBlockBottom() {
+        return blockBottom;
+    }
+
+    public Texture getCreeperTex() {
+        return creeperTex;
+    }
+
+    public Texture getPicsTex() {
+        return picsTex;
+    }
+
+    public Texture getDoorTex() {
+        return doorTex;
+    }
+
+    public Texture getPressurePlateTex() {
+        return pressurePlateTex;
+    }
+
+    public Texture getScrollbarBgTex() {
+        return scrollbarBgTex;
+    }
+
+    public void setScrollbarBgTex(Texture scrollbarBgTex) {
+        this.scrollbarBgTex = scrollbarBgTex;
+    }
+
+    public Texture getScrollbarHandleTex() {
+        return scrollbarHandleTex;
+    }
+
+    public void setScrollbarHandleTex(Texture scrollbarHandleTex) {
+        this.scrollbarHandleTex = scrollbarHandleTex;
+    }
+
+    public Texture getUiSlotTex() {
+        return uiSlotTex;
+    }
+
+    public void setUiSlotTex(Texture uiSlotTex) {
+        this.uiSlotTex = uiSlotTex;
+    }
+
+    public ShapeRenderer getShapeRenderer() {
+        return shapeRenderer;
+    }
+
+    public void setActive(boolean active) {
+        this.active = active;
+    }
+
+    public float getCameraX() {
+        return cameraX;
+    }
+
+    public void setCameraX(float cameraX) {
+        this.cameraX = cameraX;
+    }
+
+    public int getEDITOR_MAP_WIDTH_TILES() {
+        return EDITOR_MAP_WIDTH_TILES;
+    }
+
+    public int getEDITOR_MAP_WIDTH_PX() {
+        return EDITOR_MAP_WIDTH_PX;
+    }
+
+    public float getSCROLL_SPEED() {
+        return SCROLL_SPEED;
+    }
+
+    public int getSCROLL_MARGIN() {
+        return SCROLL_MARGIN;
+    }
+
+    public String getLoadedLevelName() {
+        return loadedLevelName;
+    }
+
+    public void setLoadedLevelName(String loadedLevelName) {
+        this.loadedLevelName = loadedLevelName;
+    }
+
+    public EditorMode getCurrentMode() {
+        return currentMode;
+    }
+
+    public void setCurrentMode(EditorMode currentMode) {
+        this.currentMode = currentMode;
+    }
+
+    public Tool[] getTools() {
+        return tools;
+    }
+
+    public int getSelectionIndex() {
+        return selectionIndex;
+    }
+
+    public void setSelectionIndex(int selectionIndex) {
+        this.selectionIndex = selectionIndex;
+    }
+
+    public Integer getHoverGX() {
+        return hoverGX;
+    }
+
+    public void setHoverGX(Integer hoverGX) {
+        this.hoverGX = hoverGX;
+    }
+
+    public Integer getHoverGY() {
+        return hoverGY;
+    }
+
+    public void setHoverGY(Integer hoverGY) {
+        this.hoverGY = hoverGY;
+    }
+
+    public Integer getAnchorGX() {
+        return anchorGX;
+    }
+
+    public void setAnchorGX(Integer anchorGX) {
+        this.anchorGX = anchorGX;
+    }
+
+    public Integer getAnchorGY() {
+        return anchorGY;
+    }
+
+    public void setAnchorGY(Integer anchorGY) {
+        this.anchorGY = anchorGY;
+    }
+
+    public Integer getPreviewGX() {
+        return previewGX;
+    }
+
+    public void setPreviewGX(Integer previewGX) {
+        this.previewGX = previewGX;
+    }
+
+    public Integer getPreviewGY() {
+        return previewGY;
+    }
+
+    public void setPreviewGY(Integer previewGY) {
+        this.previewGY = previewGY;
+    }
+
+    public List<int[]> getTopSegments() {
+        return topSegments;
+    }
+
+    public List<EditorCreeper> getCreepers() {
+        return creepers;
+    }
+
+    public List<int[]> getPics() {
+        return pics;
+    }
+
+    public List<int[]> getDoors() {
+        return doors;
+    }
+
+    public List<int[]> getPressurePlates() {
+        return pressurePlates;
+    }
+
+    public SaveMenu getSaveMenu() {
+        return saveMenu;
+    }
+
+    public Rectangle getScrollbarHandle() {
+        return scrollbarHandle;
+    }
+
+    public boolean isDraggingScrollbar() {
+        return isDraggingScrollbar;
+    }
+
+    public void setDraggingScrollbar(boolean isDraggingScrollbar) {
+        this.isDraggingScrollbar = isDraggingScrollbar;
+    }
+
+    public List<Rectangle> getToolSlots() {
+        return toolSlots;
     }
 }

@@ -39,6 +39,7 @@ public class GameServer {
     private static final long RESTART_RETRY_DELAY_MS = 1000L;
     private static final int MAX_RESTART_ATTEMPTS = 5;
 
+    // Classe interne pour suivre l'état des accusés de réception de redémarrage
     private static class RestartAckState {
         final int restartId;
         int attempts = 0;
@@ -96,6 +97,7 @@ public class GameServer {
                     return;
                 }
 
+                // réception de la configuration du lobby
                 if (o instanceof PacketLobbyConfig config) {
                     gameStarted = false;
                     lobbyLevelPath = config.levelPath;
@@ -148,6 +150,7 @@ public class GameServer {
             }
         });
 
+        // Démarrer la tâche périodique pour vérifier les accusés de réception de redémarrage
         restartScheduler.scheduleAtFixedRate(this::checkPendingRestartAcks,
                 RESTART_RETRY_DELAY_MS,
                 RESTART_RETRY_DELAY_MS,
@@ -188,6 +191,7 @@ public class GameServer {
         pendingRestartLevel = null;
     }
 
+    // 3. Méthodes de diffusion et de gestion des paquets
     private void broadcastStartGame(String levelPath, int playerCount) {
         if (levelPath == null || levelPath.isBlank()) {
             System.out.println("Impossible d'envoyer un démarrage : niveau inconnu.");
@@ -201,6 +205,7 @@ public class GameServer {
         gameStarted = true;
     }
 
+    // Demander à tous les clients de redémarrer le jeu sur un niveau donné
     private void broadcastRestartRequest(String levelPath) {
         if (levelPath == null || levelPath.isBlank()) {
             System.out.println("Impossible d'envoyer un redémarrage : niveau inconnu.");
@@ -228,6 +233,7 @@ public class GameServer {
         gameStarted = true;
     }
 
+    // Envoyer une requête de redémarrage à un client spécifique
     private void sendRestartRequest(int connectionId, String levelPath, int restartId) {
         if (levelPath == null || levelPath.isBlank()) {
             return;
@@ -239,6 +245,7 @@ public class GameServer {
         server.sendToTCP(connectionId, request);
     }
 
+    // Gérer la réception d'un accusé de réception de redémarrage d'un client
     private void handleRestartAck(int connectionId, int restartId) {
         RestartAckState state = pendingRestartAcks.get(connectionId);
         if (state == null) {
@@ -254,6 +261,7 @@ public class GameServer {
         }
     }
 
+    // Vérifier périodiquement les accusés de réception de redémarrage en attente
     private void checkPendingRestartAcks() {
         if (pendingRestartAcks.isEmpty()) {
             return;
@@ -284,12 +292,14 @@ public class GameServer {
         }
     }
 
+    // Réinitialiser l'état "dead" de tous les joueurs avant un redémarrage
     private void resetPlayersStateForRestart() {
         for (PacketPlayer p : players.values()) {
             p.dead = false;
         }
     }
 
+    // Méthode publique pour redémarrer le jeu sur un niveau donné ou le niveau du lobby
     public void restartGame(String levelPath) {
         String targetLevel = (levelPath != null && !levelPath.isBlank()) ? levelPath : lobbyLevelPath;
         if (targetLevel == null || targetLevel.isBlank()) {
@@ -300,6 +310,7 @@ public class GameServer {
         broadcastRestartRequest(targetLevel);
     }
 
+    // Gérer le retour au menu principal
     private void handleReturnToMenu(PacketReturnToMenu pkt) {
         server.sendToAllTCP(pkt);
         resetLobby();

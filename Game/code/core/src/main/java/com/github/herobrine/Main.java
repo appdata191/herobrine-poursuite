@@ -106,6 +106,7 @@ public class Main extends ApplicationAdapter {
         levelSelectionMenu.activate();
     }
 
+    // Retour au menu précédent depuis l'écran de sélection de niveau
     public void returnToPreviousMenuFromSelection() {
         if (isEditing) {
             editorStartMenu.activate();
@@ -114,6 +115,7 @@ public class Main extends ApplicationAdapter {
         }
     }
 
+    // Appelé lorsque le joueur sélectionne un niveau dans l'écran de sélection
     public void onLevelSelected(String levelPath) {
         if (isEditing) {
             createMap.activate(levelPath);
@@ -151,6 +153,8 @@ public class Main extends ApplicationAdapter {
     public void awaitMultiplayerStart() {
         waitingForMultiplayerStart = true;
     }
+
+    // Configure le lobby multijoueur avant de démarrer la partie
     public boolean configureMultiplayerLobby(String levelPath, int expectedPlayers) {
         if (gameClient == null || !gameClient.connected) {
             System.out.println("Client non connecté, impossible de configurer le lobby multijoueur.");
@@ -302,6 +306,7 @@ public class Main extends ApplicationAdapter {
             handleReturnToMenuFromNetwork(returnToMenuPacket.reason);
         }
 
+        // Gestion des paquets de redémarrage
         PacketRestartRequest restartPacket;
         while ((restartPacket = gameClient.pollRestartRequest()) != null) {
             if (restartPacket.restartId <= lastHandledRestartId) {
@@ -317,6 +322,7 @@ public class Main extends ApplicationAdapter {
             gameClient.sendRestartAck(restartPacket.restartId);
         }
 
+        // Gestion du début de la partie
         PacketStartGame startPacket = gameClient.pollStartGamePacket();
         if (startPacket != null) {
             lastHandledRestartId = -1;
@@ -329,6 +335,7 @@ public class Main extends ApplicationAdapter {
             initGame(startPacket.levelPath);
         }
 
+        // Gestion de la fin de la partie
         PacketGameOver overPacket = gameClient.pollGameOverPacket();
         if (overPacket != null) {
             String reason = (overPacket.reason != null && !overPacket.reason.isBlank())
@@ -340,6 +347,7 @@ public class Main extends ApplicationAdapter {
             triggerGameOver(reason);
         }
 
+        // Gestion des changements d'état des portes
         PacketDoorState doorPacket;
         while ((doorPacket = gameClient.pollDoorStatePacket()) != null) {
             if (carte != null) {

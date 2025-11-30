@@ -73,6 +73,7 @@ public class Carte {
         return 0;
     }
 
+    // Cherche le sol dans une colonne spécifique
     private float findGroundInColumn(int gridX) {
         for (int gy = MAP_HEIGHT_TILES - 1; gy >= 0; gy--) {
             if (map[gridX][gy] != 0) {
@@ -82,6 +83,7 @@ public class Carte {
         return -1f;
     }
 
+    // Méthode de chargement du niveau à partir d'un fichier
     private void loadLevel(String levelPath) {
         clear();
         portesParId.clear();
@@ -267,6 +269,7 @@ public class Carte {
         }
     }
 
+    // Mise à jour des automates et gestion des interactions avec le joueur
     public boolean updateAutomates(float delta, Joueur joueur) {
 
         for (AutomateMortel auto : automates) {

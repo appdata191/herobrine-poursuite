@@ -38,9 +38,13 @@ assets/levels/testppetd.txt
 assets/levels/vl.txt
 creeper.png
 herobrine.png
+hs_err_pid11936.log
 hs_err_pid13955.log
 hs_err_pid14807.log
+hs_err_pid23765.log
+hs_err_pid23884.log
 hs_err_pid25395.log
+hs_err_pid30956.log
 hs_err_pid34909.log
 hs_err_pid38687.log
 hs_err_pid41326.log

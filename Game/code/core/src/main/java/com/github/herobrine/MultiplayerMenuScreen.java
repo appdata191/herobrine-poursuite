@@ -178,6 +178,7 @@ public class MultiplayerMenuScreen extends AbstractMenuScreen {
         nextLevelButton.setDisabled(selectedLevelIndex == levelNames.size - 1);
     }
 
+    // Met à jour la liste des niveaux disponibles pour l'hébergement
     private void refreshLevelChoices() {
         FileHandle directory = Gdx.files.local("assets/levels/");
         levelPathMap.clear();
