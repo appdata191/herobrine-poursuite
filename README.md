@@ -40,7 +40,7 @@ Permet de jouer à plusieurs.
 
 ### Connexion
 1. Choisir **Multiplayer**
-2. Entrer l’adresse IP du serveur
+2. Entrer l’adresse IP
 3. Rejoindre la session
 
 Le multijoueur utilise KryoNet intégré au projet.
@@ -50,15 +50,14 @@ Permet de créer ou modifier vos propres niveaux.
 
 ### Contrôles de l’éditeur
 - `1` / `2` / `3` : sélectionner un item / bloc
-- Clic gauche : placer un bloc
-- Clic droit : retirer un bloc
+- Clic gauche : retirer un bloc
+- Clic droit : placer un bloc
 
 Les cartes créées peuvent être testées immédiatement dans le mode solo.
 
 ## 📁 Structure du projet
 - `desktop/` – point d’entrée de l’application
 - `core/` – logique du jeu (entités, moteur, cartes)
-- `server/` – serveur multijoueur
 - `assets/` – ressources (textures, cartes, données)
 
 ## 👥 Auteurs
